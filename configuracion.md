@@ -41,18 +41,7 @@
    ]
    ```
    
-3. **Edita el prefijo del bot**
-
-   El prefijo es el carácter o los caracteres que el bot busca al inicio de un mensaje para saber que es un comando. Si deseas cambiar el prefijo que el bot usa para responder a los comandos, puedes hacerlo editando la siguiente línea :
-
-   ```js
-   global.prefix = 'Tu prefijo aquí'
-   //'/' '*' '!' '#' '.'
-
-   global.prefix = '.'
-    ```
-   
-4. **Edita la experiencia y las monedas del bot**
+3. **Edita la experiencia y las monedas del bot**
 
    Cuando se inicia el bot, se asigna una cantidad predeterminada de experiencia y monedas a cada usuario en su balance. Si deseas cambiar estos valores, puedes hacerlo editando las siguientes líneas :
 
