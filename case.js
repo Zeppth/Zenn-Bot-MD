@@ -1276,7 +1276,17 @@ ${cpus.map((cpu, i) => `${i + 1}. ${cpu.model.trim()} (${cpu.speed} MHZ)\n${Obje
 
             const { path } = await overlayImages(['./multimedia/imagenes/logo.png', './multimedia/iconos/nodejs.png'], { tamano: [100, 100], localizacion: ['abajoIzquierda', 50] })
 
-            conn.sendMessage(m.chat, { image: fs.readFileSync(path), caption: defaultMenu(), contextInfo: { mentionedJid: [...defaultMenu().matchAll(/@(\d{0,16})/g)].map(v => v[1] + '@s.whatsapp.net'), externalAdReply: { title: 'Zenn Bot MD (en desarrollo)', body: 'Simple Bot de WhatsApp', thumbnail: fs.readFileSync('./multimedia/imagenes/thumbnail.jpg'), showAdAttribution: true } }, mentions: [m.sender] }, { quoted: m }); m.react('📚')
+            conn.sendMessage(m.chat, {
+                image: fs.readFileSync(path), caption: defaultMenu(), contextInfo: {
+                    mentionedJid: [...defaultMenu().matchAll(/@(\d{0,16})/g)].map(v => v[1] + '@s.whatsapp.net'), externalAdReply: {
+                        title: 'Zenn Bot MD (en desarrollo)',
+                        body: 'Simple Bot de WhatsApp',
+                        thumbnail: fs.readFileSync('./multimedia/imagenes/thumbnail.jpg'),
+                        sourceUrl: 'https://github.com/Zeppth/Zenn-Bot-MD?rgh-fork=true',
+                        showAdAttribution: true
+                    }
+                }, mentions: [m.sender]
+            }, { quoted: m }); m.react('📚')
         } break
 
         case 'creador': case 'owner': {
