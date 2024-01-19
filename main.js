@@ -7,6 +7,8 @@ import pino from 'pino'
 import NodeCache from 'node-cache'
 import chalk from 'chalk'
 import { join } from 'path'
+import { format } from 'util'
+import path from 'path'
 import { readdirSync, unlinkSync } from 'fs'
 import readline from 'readline'
 import fs from 'fs'
@@ -14,7 +16,7 @@ import moment from 'moment-timezone'
 import './config.js'
 import { messages_upsert, groups_update, group_participants_update, connection_update } from './script.js'
 
-const { default: makeWAconnet, useMultiFileAuthState, PHONENUMBER_MCC, makeInMemoryStore, DisconnectReason, fetchLatestBaileysVersion, proto } = (await import('@whiskeysockets/baileys')).default
+const { default: makeWAconnet, useMultiFileAuthState, PHONENUMBER_MCC, makeInMemoryStore, fetchLatestBaileysVersion, proto } = (await import('@whiskeysockets/baileys')).default
 const { chain } = lodash
 
 global.uptime = timeString(process.uptime())
@@ -56,7 +58,7 @@ async function StartBot() {
     while (!connect.opcion) {
       const m = await question(chalk.white('┠') + chalk.red('┅') + chalk.white('> '))
       const comando = m.trim().split(/ +/).shift().toLowerCase()
-      switch (comando) { case '1 ': case '.1': case ' 1': case '1': { connect.opcion = '1' } break; case '2 ': case '.2': case ' 2': case '2': { connect.opcion = '2' } break; default: { console.log(`${chalk.white('╰') + chalk.red('┅') + chalk.white('[ ') + chalk.greenBright('Por favor, introduce solo el número 1 o 2.') + chalk.white(' ]')}\n`) + console.log(chalk.greenBright(menu)) } }
+      switch (comando) { case '1': { connect.opcion = '1' } break; case '2': { connect.opcion = '2' } break; default: { console.log(`${chalk.white('╰') + chalk.red('┅') + chalk.white('[ ') + chalk.greenBright('Por favor, introduce solo el número 1 o 2.') + chalk.white(' ]')}\n`) + console.log(chalk.greenBright(menu)) } }
     }
   }
 
@@ -93,18 +95,24 @@ async function StartBot() {
     }, 2000)
   }
 
+  if (!conn.SubBotsList) conn.SubBotsList = {}
   conn.ev.on('creds.update', saveCreds);
-  conn.ev.on('connection.update', async (update) => { await connection_update(update, StartBot).catch(e => connect.error = e) });
-  conn.ev.on('messages.upsert', async (m) => { await messages_upsert(conn, m, store).catch(e => connect.error = e) })
-  conn.ev.on("groups.update", async (json) => { await groups_update(conn, json).catch(e => connect.error = e) })
-  conn.ev.on('group-participants.update', async (anu) => { await group_participants_update(conn, anu).catch(e => connect.error = e) })
+  conn.ev.on('connection.update', async (update) => { await connection_update(update, StartBot).catch(e => connect.error = format(e)) });
+  conn.ev.on('messages.upsert', async (m) => { await messages_upsert(conn, m, store, proto, false).catch(e => connect.error = format(e)) })
+  conn.ev.on("groups.update", async (json) => { await groups_update(conn, json).catch(e => connect.error = format(e)) })
+  conn.ev.on('group-participants.update', async (anu) => { await group_participants_update(conn, anu).catch(e => connect.error = format(e)) })
 
   setInterval(async () => { await conn.sendMessage(global.owner.find(o => o[2])?.[0] + '@s.whatsapp.net', { document: fs.readFileSync('./database.json'), caption: '● *fecha :* ' + moment().tz(Intl.DateTimeFormat().resolvedOptions().timeZone).format('DD/MM/YY HH:mm:ss'), mimetype: 'document/json', fileName: 'database.json' }) }, 2 * 60 * 60 * 1000)
 
-  if (connect.error) {
-    conn.sendMessage(global.owner.find(o => o[2])?.[0] + '@s.whatsapp.net', { text: connect.error })
-    connect.error = false
+  async function SubBots(ruta) {
+    if (!fs.existsSync(ruta)) { return null }
+    let SubBots = fs.readdirSync(ruta).filter(archivo => { return fs.statSync(path.join(ruta, archivo)).isDirectory() && !archivo.includes('@s.whatsapp.net') })
+    conn.SubBotsList = SubBots
+    console.log(SubBots)
   }
+
+  await SubBots('./SubBots')
+  if (connect.error) { conn.sendMessage(global.owner.find(o => o[2])?.[0] + '@s.whatsapp.net', { text: connect.error }), connect.error = false }
 }
 
 try { await StartBot() } catch (e) { console.log(e); connect.error = e }

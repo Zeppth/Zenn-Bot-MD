@@ -6,6 +6,9 @@ import { Boom } from '@hapi/boom'
 import { format } from 'util'
 import './config.js'
 
+const Prefix = ".¿?¡!#%&/;:,~-+="
+global.prefix = Prefix[0]
+
 const { DisconnectReason } = (await import('@whiskeysockets/baileys')).default
 const isNumber = x => typeof x === 'number' && !isNaN(x)
 
@@ -15,7 +18,7 @@ export async function connection_update(update, StartBot) {
     if (global.db.data == null) loadDatabase()
 }
 
-export async function messages_upsert(conn, m, store) {
+export async function messages_upsert(conn, m, store, subBot = false) {
     if (global.db.data == null) await global.loadDatabase()
     if (!m.type === 'notify') return;
     if (!m) return
@@ -70,6 +73,7 @@ export async function messages_upsert(conn, m, store) {
             exp: global.rpg.data.exp,
             coin: global.rpg.data.coin,
             registered: false,
+            getname: m.name,
             name: m.name,
             banned: false,
             role: global.rpg.data.role,
@@ -107,6 +111,7 @@ export async function messages_upsert(conn, m, store) {
             if (!('restrict' in settings)) settings.restrict = true
         } else global.db.data.settings[m.Bot] = {
             objecto: {},
+            SubBots: {},
             autoread: false,
             OwnerUse: false,
             antiPrivado: false
@@ -127,15 +132,14 @@ export async function messages_upsert(conn, m, store) {
     m.isPrems = global.db.data.users[m.sender].premium
 
     m.body = (m.type(m.message) === 'conversation') ? m.message.conversation : (m.type(m.message) == 'imageMessage') ? m.message.imageMessage.caption : (m.type(m.message) == 'videoMessage') ? m.message.videoMessage.caption : (m.type(m.message) == 'extendedTextMessage') ? m.message.extendedTextMessage.text : ''
-
     m.budy = (typeof m.body == 'string' ? m.body : '')
 
-    m.isCmd = m.body.startsWith(prefix)
-    m.command = m.isCmd ? m.body.replace(prefix, '').trim().split(/ +/).shift().toLowerCase() : null
+    m.isCmd = (Prefix).includes(m.body[0])
+    m.command = m.isCmd ? m.body.substring(1).trim().split(/ +/).shift().toLowerCase() : false
     m.args = m.body.trim().split(/ +/).slice(1)
     m.text = m.args.join(" ")
 
-    console.log('\x1b[1;31m~\x1b[1;37m>', chalk.white('['), chalk.blue(m.isCmd ? 'EJECUTANDO' : 'MENSAJE'), chalk.white(']'), chalk.green('{'), chalk.rgb(255, 131, 0).underline(m.budy), chalk.green('}'), chalk.blue(m.isCmd ? 'Por' : 'De'), chalk.cyan(m.name), 'Chat', m.isGroup ? chalk.bgGreen('grupo:' + m.groupName || m.chat) : chalk.bgRed('Privado:' + m.name || m.sender), 'Fecha', chalk.magenta(moment().tz(Intl.DateTimeFormat().resolvedOptions().timeZone).format('DD/MM/YY HH:mm:ss')).trim())
+    console.log('\x1b[1;31m~\x1b[1;37m>', chalk.white('['), chalk.blue(m.isCmd ? `EJECUTANDO` : `MENSAJE`), chalk.white(']'), chalk.green('{'), chalk.rgb(255, 131, 0).underline(m.budy), chalk.green('}'), chalk.blue(m.isCmd ? 'Por' : 'De'), chalk.cyan(m.name), 'Chat', m.isGroup ? chalk.bgGreen('grupo:' + m.groupName || m.chat) : chalk.bgRed('Privado:' + m.name || m.sender), 'Fecha', chalk.magenta(moment().tz(Intl.DateTimeFormat().resolvedOptions().timeZone).format('DD/MM/YY HH:mm:ss')).trim())
 
     m.reply = async (text) => { await conn.sendMessage(m.chat, { text: text, contextInfo: { mentionedJid: [...text.matchAll(/@(\d{0,16})/g)].map(v => v[1] + '@s.whatsapp.net') } }, { quoted: m }) }
 
@@ -172,8 +176,7 @@ export async function messages_upsert(conn, m, store) {
 
     if (global.db.data.settings[m.Bot].autoread) conn.readMessages([m.key])
 
-    try { await sendCase(conn, m, store) } catch (e) { conn.sendMessage(m.chat, { text: `*¡Se detecto un error en el bot¡:*\n\n*▢ Comando :* ${prefix + m.command}\n*▢ Usuario:* wa.me/${m.sender.split("@")[0]}\n*▢ Chat:* ${m.chat}\n\n\`\`\`${format(e)}\`\`\` \n`.trim() }, { quoted: m }); console.log('Error: ' + e) }
-    //await sendCase(conn, m, store)
+    try { await sendCase(conn, m, store) } catch (e) { conn.sendMessage(global.owner.find(o => o[2])?.[0] + '@s.whatsapp.net', { text: `*¡Se detecto ${subBot ? 'en un subBot' : 'en el Bot'}¡:*\n\n*▢ Comando :* ${prefix + m.command}\n*▢ Usuario:* wa.me/${m.sender.split("@")[0]}\n*▢ Chat:* ${m.chat}\n\n\`\`\`${format(e)}\`\`\` \n`.trim() }, { quoted: m }); console.log('Error: ' + e) }
 }
 
 export async function groups_update(conn, json) {

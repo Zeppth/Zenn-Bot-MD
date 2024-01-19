@@ -3,13 +3,13 @@ import { platform } from 'process'
 import path from 'path'
 
 global.owner = [
-    ['5216673877887', 'Zeppth', true]
+    ['5216673877887', 'Zeppth', true],
+    ['5216671993513'],
+    ['51907182818']
 ]
 
-global.mods = ['5216673877887']
-global.prems = ['5216673877887']
-
-global.prefix = '.'
+global.mods = ['5216673877887', '5216671993513', '51907182818']
+global.prems = ['5216673877887', '5216671993513', '51907182818']
 
 global.rpg = {
     data: {
@@ -139,5 +139,5 @@ global.rpg = {
 
 global.__filename = function filename(pathURL = import.meta.url, rmPrefix = platform !== 'win32') { return rmPrefix ? /file:\/\/\//.test(pathURL) ? fileURLToPath(pathURL) : pathURL : pathToFileURL(pathURL).toString() }
 
-global.__dirname = function dirname(pathURL) { return path.dirname(global.__filename(pathURL, true)) } 
+global.__dirname = function dirname(pathURL) { return path.dirname(global.__filename(pathURL, true)) }
 

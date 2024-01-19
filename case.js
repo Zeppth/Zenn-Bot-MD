@@ -1,4 +1,4 @@
-// Creador Zeppt 5216673877887
+// by Zeppth
 // Exporta la función sendCase que maneja los comandos
 
 import { pinterest } from '@bochilteam/scraper'
@@ -23,8 +23,8 @@ import yts from 'yt-search'
 import './config.js'
 import { generateProfilePicture, overlayImages } from './lib/overlayImages.js'
 import ytdl from './lib/ytdl2.js'
-import { getBuffer } from './lib/simple.js';
-import { YoutTube, dlmp3, dlmp4, fetchBuffer, getVideoID, ytIdRegex } from './lib/ytdlmp.js'
+import { SubBot } from './lib/subBot.js'
+import { YoutTube, dlmp3, ytIdRegex } from './lib/ytdlmp.js'
 
 const formatSize = sizeFormatter({ std: 'JEDEC', decimalPlaces: 2, keepTrailingZeroes: false, render: (literal, symbol) => `${literal} ${symbol}B` })
 
@@ -61,6 +61,11 @@ let MenuRandom = `╔I *「 RANDOM 」*
 ║├ %prefix creador
 ║├ %prefix audios (en desarrollo)
 ║├ %prefix info (en desarrollo)
+║│
+║╰┬—I *「 SubBots 」*
+║╭╯
+║├ %prefix serBot *(prueba)*
+║├ %prefix startBot *(prueba)*
 ║╰—————————
 ╚══════════`
 
@@ -210,9 +215,17 @@ rpg y con ello el uso de coins.
 
 *%prefix encender* RPG
 *%prefix apagar* RPG
+________________________
+
+*『 USO DE ADMINS 』*
+ahora el Bot solo podrá ser usado
+por los administradores del grupo.
+
+*%prefix encender* adminuse
+*%prefix apagar* adminuse
 ________________________`)
 
-export async function sendCase(conn, m, store) {
+export async function sendCase(conn, m, store, proto) {
     const data = global.db.data
 
     if (!m.isOwner && data.chats[m.chat].isBanned) return;
@@ -239,9 +252,12 @@ export async function sendCase(conn, m, store) {
     }
 
     if (!(database('users', m.sender).name == m.name)) { if (!database('users', m.sender).registered) { database('users', m.sender).name = m.name } }
+    if (!(database('users', m.sender).getname == m.name)) { database('users', m.sender).getname = m.name }
 
     if (!conn.question) { conn.question = {} }
     if (!conn.transferencia) { conn.transferencia = {} }
+    if (!conn.SerBot) { conn.SerBot = {} }
+    if (!conn.SubBot) { conn.SubBot = {} }
 
     if (conn.question[m.sender]) {
         const object = conn.question
@@ -285,10 +301,102 @@ export async function sendCase(conn, m, store) {
         }
     }
 
+    if (conn.SerBot[m.sender]) {
+        const objecto = conn.SerBot;
+        const { user, chat } = objecto[m.sender];
+        if (!(m.sender == user)) return;
+        if (!(m.chat == chat)) return;
+        const upsert = m.body.toLowerCase();
+        const regex = /(\+?\d{1,4}?[-.\s]?)?(\()?(\d{1,3}?)\)?[-.\s]?\d{1,4}[-.\s]?\d{1,9}/g;
+
+        switch (upsert) {
+            case 'cancelar': case '3': {
+                m.react(done)
+                m.reply('Acción cancelada')
+                clearTimeout(objecto[m.sender].setTimeout);
+                delete objecto[m.sender];
+            }
+        }
+
+        if (objecto[m.sender].siguiente) {
+            const numeros = m.body.match(regex);
+            if (!m.fromMe) {
+                switch (upsert) {
+                    case '1': {
+                        conn.SubBot[m.sender] = { chat: m.chat, numero: '+' + m.sender.split`@`[0], opcion: '2', sender: m.sender };
+                        await SubBot(conn, store, proto, user);
+                        clearTimeout(objecto[m.sender].setTimeout);
+                        delete objecto[m.sender];
+                    } break
+
+                    default: {
+                        if (numeros) {
+                            conn.SubBot[m.sender] = { chat: m.chat, numero: numeros[0].replace(/\s|-|\(|\)/g, ''), opcion: '2', sender: m.sender };
+                            await SubBot(conn, store, proto, user);
+                            clearTimeout(objecto[m.sender].setTimeout);
+                            delete objecto[m.sender];
+                        }
+                    } break
+                }
+            }
+        } else {
+            switch (upsert) {
+                case '1': {
+                    clearTimeout(objecto[m.sender].setTimeout);
+                    delete objecto[m.sender];
+                    conn.SubBot[m.sender] = { chat: m.chat, numero: '', opcion: '1', sender: m.sender };
+                    await SubBot(conn, store, proto, user);
+                } break;
+
+                case '2': {
+                    clearTimeout(objecto[m.sender].setTimeout);
+                    delete objecto[m.sender].setTimeout
+                    m.reply(`Si desea utilizar su número actual (${m.sender.split`@`[0]}) como Bot, por favor, escriba *‘1’*. Si prefiere asignar un número diferente, introduzca dicho número.\n\nPor ejemplo: +529999999999`)
+                    objecto[m.sender].setTimeout = setTimeout(() => (m.reply('Se acabó el tiempo, esta acción fue cancelada'), delete conn.SerBot[m.sender]), 2 * 60 * 1000);
+                    objecto[m.sender].siguiente = true
+                } break;
+            }
+        }
+    }
+
     database('users', m.sender).exp += Math.floor(Math.random() * 5) + 1
 
     ////////////////////////GRUPOS
     switch (m.command) {
+        case 'startbot': {
+            if (m.fromMe) return;
+            const text = `No tienes una sesión activa, o tu sesión fue interrumpida debido a problemas de conexión.\n\nCrea una nueva utilizando el comando *.serBot*.`
+            if (!fs.existsSync('./SubBots')) return m.reply(text)
+            if (fs.existsSync(`./SubBots/${m.sender}`)) {
+                if (fs.existsSync(`./SubBots/${m.sender}/creds.json`)) {
+                    await SubBot(conn, store, proto, m.sender, true)
+                    m.reply('Conectado ✓')
+                }
+            } else { m.reply(text) }
+        } break
+
+        case 'stopbot': {
+            if (!m.fromMe) return;
+            conn.mySubBot = true
+            const stopBot = (stop = false) => {
+                if (!stop) return
+                try { conn.ws.close() } catch { };
+                console.log('Conexión cerrada')
+                conn.ev.removeAllListeners();
+                connect.start = false
+            }
+            stopBot(true)
+            m.reply('Conexión detenida')
+        } break
+
+        case 'subbot': case 'serbot': {
+            const creds = path.join('./SubBots', 'creds.json')
+            if (fs.existsSync('./SubBots')) if (fs.existsSync(`./SubBots/${m.sender}`)) if (fs.existsSync(creds)) return m.reply('Ya hay una sesion a tu numero')
+
+            m.reply(`*¿Cómo prefiere conectarse?*\n\n1. Código *QR.*\n2. Código de *8 dígitos.*\n\nPor favor, ingrese *1* o *2* según su preferencia.`/**Digite 3 para cancelar esta acción */)
+            conn.SerBot[m.sender] = { chat: m.chat, user: m.sender, setTimeout: setTimeout(() => (m.reply('Se acabó el tiempo, esta acción fue cancelada'), delete conn.question[m.sender]), 60 * 1000) }
+        } break
+
         case 'chat': {
             if (!m.text) return
             await conn.relayMessage(m.chat, { requestPaymentMessage: { currencyCodeIso4217: 'INR', amount1000: '1000000000000', requestFrom: '0@s.whatsapp.net', noteMessage: { extendedTextMessage: { text: m.text, contextInfo: { mentionedJid: [m.sender], externalAdReply: { showAdAttribution: true } } } } } }, {})
@@ -339,11 +447,16 @@ export async function sendCase(conn, m, store) {
                     if (chat.commands.servicio) return m.reply(smTrue)
                     try { chat.commands.servicio = true; m.react(done) } catch { m.react(error) }
                 }
-                else if (m.args[0] == 'grupos') {
+                else if (m.args[0] == 'adminuse') {
                     if (!m.isGroup) return m.sms('group')
                     if (!m.isAdmin) return m.sms('admin')
-                    if (chat.commands.grupos) return m.reply(smTrue)
-                    try { chat.commands.grupos = true; m.react(done) } catch { m.react(error) }
+                    if (chat.commands.adminUse) return m.reply(smTrue)
+                    try { chat.commands.adminUse = true; m.react(done) } catch { m.react(error) }
+                }
+                else if (m.args[0] == 'autoread') {
+                    if (!m.isOwner ?? m.isROwner) return m.sms('owner')
+                    if (global.db.data.settings[m.Bot].autoread) return m.reply(smTrue)
+                    try { global.db.data.settings[m.Bot].autoread = true; m.react(done) } catch { m.react(error) }
                 }
                 else m.reply(settings.split('%prefix ').join(global.prefix))
             }
@@ -390,8 +503,13 @@ export async function sendCase(conn, m, store) {
                 else if (m.args[0] == 'grupos') {
                     if (!m.isGroup) return m.sms('group')
                     if (!m.isAdmin) return m.sms('admin')
-                    if (!chat.commands.grupos) return m.reply(smFalse)
-                    try { chat.commands.grupos = false; m.react(done) } catch { m.react(error) }
+                    if (!chat.commands.adminUse) return m.reply(smFalse)
+                    try { chat.commands.adminUse = false; m.react(done) } catch { m.react(error) }
+                }
+                else if (m.args[0] == 'autoread') {
+                    if (!m.isOwner ?? m.isROwner) return m.sms('owner')
+                    if (!global.db.data.settings[m.Bot].autoread) return m.reply(smFalse)
+                    try { global.db.data.settings[m.Bot].autoread = false; m.react(done) } catch { m.react(error) }
                 }
                 else m.reply(settings.split('%prefix ').join(global.prefix))
             }
@@ -929,7 +1047,7 @@ Enviando archivo${readMore}`.trim();
 ▢ *Registrado :* ${registered ? 'Si' : 'No'}
 └──────────────`.trim()
 
-                const { path } = await overlayImages([pp, registered ? m.isPrems ? './multimedia/iconos/premium.png' : './multimedia/iconos/registrado.png' : './multimedia/iconos/usuario.png'], { tamano: [100, 100], localizacion: ['abajoIzquierda', 1] })
+                const { path } = await overlayImages([pp, registered ? m.isPrems ? './multimedia/iconos/premium.png' : './multimedia/iconos/registrado.png' : './multimedia/iconos/usuario.png'], { tamano: '%15', localizacion: ['abajoIzquierda', 1] })
 
                 conn.sendMessage(m.chat, { image: fs.readFileSync(path), caption: Text, contextInfo: { mentionedJid: [...Text.matchAll(/@(\d{0,16})/g)].map(v => v[1] + '@s.whatsapp.net'), externalAdReply: { title: registered ? name : m.name, body: 'Usuario de Zenn Bot MD', thumbnail: fs.readFileSync('./multimedia/imagenes/thumbnail.jpg') } } }, { quoted: m }); m.react(done)
             } break
@@ -946,7 +1064,6 @@ Enviando archivo${readMore}`.trim();
 
             case 'slot': {
                 const { exp, nivel } = database('users', m.sender)
-                if (quesCoin()) return m.react('💲')
                 if (exp < 300) return m.reply('Es necesario tener un mínimo de *300 XP* para poder usar este comando.')
                 if (nivel == 4 || nivel < 5) return m.reply('Para utilizar este comando, es necesario que te encuentres en el nivel 5 o en uno más avanzado.')
 
@@ -1163,22 +1280,14 @@ ${cpus.map((cpu, i) => `${i + 1}. ${cpu.model.trim()} (${cpu.speed} MHZ)\n${Obje
         } break
 
         case 'creador': case 'owner': {
-            await sendContactArray(conn, m.chat, [[`5216673877887`, `${database('users', '573245088667@s.whatsapp.net').name || null}`, `⚡ Creador principal`, null]], { key: { fromMe: false, participant: "0@s.whatsapp.net", ...(m.chat ? { remoteJid: "status@broadcast" } : {}) }, message: { contactMessage: { displayName: 'Zenn-Bot 24/7', vcard: `BEGIN:VCARD\nVERSION:3.0\nN:XL;0,;;;\nFN:0,\nitem1.TEL;waid=${m.sender.split("@")[0]}:${m.sender.split("@")[0]}\nitem1.X-ABLabell:Ponsel\nEND:VCARD` } } })
+            await sendContactArray(conn, m.chat, [[`5216673877887`, `${database('users', '5216673877887@s.whatsapp.net').name || null}`, `⚡ Creador principal`, null], [`51907182818`, `${database('users', '51907182818@s.whatsapp.net').name || null}`, `🤝 Colaborador`, null], [`5216671993513`, `${database('users', '5216671993513@s.whatsapp.net').name || null}`, `🤝 Colaborador`, null]], { key: { fromMe: false, participant: "0@s.whatsapp.net", ...(m.chat ? { remoteJid: "status@broadcast" } : {}) }, message: { contactMessage: { displayName: 'Zenn-Bot 24/7', vcard: `BEGIN:VCARD\nVERSION:3.0\nN:XL;0,;;;\nFN:0,\nitem1.TEL;waid=${global.owner.find(o => o[2])?.[0]}:${global.owner.find(o => o[2])?.[0]}\nitem1.X-ABLabell:Ponsel\nEND:VCARD` } } })
 
             async function sendContactArray(conn, jid, data, quoted, options) {
                 if (!Array.isArray(data[0]) && typeof data[0] === 'string') data = [data]
                 let contacts = []
-                for (let [number, name, isi, isi1] of data) {
-                    number = number.replace(/[^0-9]/g, '');
-                    let vcard = `BEGIN:VCARD\nVERSION:3.0\nN:Sy;Bot;;;\nFN:${name.replace(/\n/g, '\\n')}\nitem.ORG:${isi}\nitem1.TEL;waid=${number}:${PhoneNumber('+' + number).getNumber('international')}\nitem1.X-ABLabel:${isi1}\nEND:VCARD`.trim()
-                    contacts.push({ vcard, displayName: name })
-                }
-
+                for (let [number, name, isi, isi1] of data) { let vcard = `BEGIN:VCARD\nVERSION:3.0\nN:Sy;Bot;;;\nFN:${name.replace(/\n/g, '\\n')}\nitem.ORG:${isi}\nitem1.TEL;waid=${number.replace(/[^0-9]/g, '')}:${PhoneNumber('+' + number.replace(/[^0-9]/g, '')).getNumber('international')}\nitem1.X-ABLabel:${isi1}\nEND:VCARD`.trim(); contacts.push({ vcard, displayName: name }) }
                 return await conn.sendMessage(jid, { contacts: { displayName: (contacts.length > 1 ? `2013 kontak` : contacts[0].displayName) || null, contacts } }, { quoted, ...options })
             }
-
-            /*let vcard = `BEGIN:VCARD\nVERSION:3.0\nN:Sy;Bot;;;\nFN:Zeppt\nitem.ORG: Creador del Bot\nitem1.TEL;waid=5216673877887:+52 667 387 7887\nEND:VCARD`
-            let a = await conn.sendMessage(m.chat, { contacts: { displayName: 'ZennBot MD', contacts: [{ vcard }] } }, { quoted: m })*/
         } break
     }
 
