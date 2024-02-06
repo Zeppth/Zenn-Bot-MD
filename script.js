@@ -2,26 +2,27 @@ import chalk from 'chalk'
 import { smsg } from './lib/simple.js'
 import { sendCase } from './case.js'
 import moment from 'moment-timezone'
+import QRCode from 'qrcode-terminal'
 import { Boom } from '@hapi/boom'
 import { format } from 'util'
 import './config.js'
 
 const Prefix = ".¿?¡!#%&/;:,~-+="
 global.prefix = Prefix[0]
-
-const { DisconnectReason } = (await import('@whiskeysockets/baileys')).default
 const isNumber = x => typeof x === 'number' && !isNaN(x)
+const { DisconnectReason } = (await import('@whiskeysockets/baileys')).default
 
 export async function connection_update(update, StartBot) {
-    console.log(update); const { connection, lastDisconnect } = update
+    console.log(update); const { connection, lastDisconnect, qr } = update
     if (connection === 'close') { const shouldReconnect = lastDisconnect.error instanceof Boom && lastDisconnect.error.output?.statusCode !== DisconnectReason.loggedOut; console.log('Conexión cerrada debido a ', lastDisconnect.error, ', reconectando... ', shouldReconnect); if (shouldReconnect) { await StartBot().catch(console.error) } } else if (connection === 'open') { console.log('Conectado ✓') }
+    if (qr) QRCode.generate(qr, { small: true })
     if (global.db.data == null) loadDatabase()
 }
 
 export async function messages_upsert(conn, m, store, subBot = false) {
     if (global.db.data == null) await global.loadDatabase()
     if (!m.type === 'notify') return;
-    if (!m) return
+    if (!m) return;
     //console.log(JSON.stringify(m, undefined, 2))
     m.mek = m
     m.prefix = global.prefix
@@ -41,95 +42,14 @@ export async function messages_upsert(conn, m, store, subBot = false) {
         m.isAdmin = m.isGroup ? m.groupAdmins.includes(m.sender) : false
     }
 
-    const creador = (global.owner.find(o => o[2])?.[0] + '@s.whatsapp.net').includes(m.sender)
-    const propietario = creador || global.owner.map(owner => owner[0].replace(/[^0-9]/g, '') + '@s.whatsapp.net').includes(m.sender)
-    const moderador = propietario || global.mods.map(v => v.replace(/[^0-9]/g, '') + '@s.whatsapp.net').includes(m.sender)
-    const premium = moderador || global.prems.map(v => v.replace(/[^0-9]/g, '') + '@s.whatsapp.net').includes(m.sender)
+    const data = global.db.data
+    m.data = (object, m) => global.db.data[object][m]
+    m.user = (sender = m.sender) => { const user = data.users[sender]; return user.rowner ? 'rowner' : user.owner ? 'owner' : user.modr ? 'modr' : user.premium ? 'premium' : false }
 
-    try {
-        let user = global.db.data.users[m.sender]
-        if (typeof user !== 'object') global.db.data.users[m.sender] = {}
-        if (user) {
-            if (!isNumber(user.lastmiming)) user.lastmiming = 10
-            if (!isNumber(user.lastrob)) user.lastrob = 10
-            if (!isNumber(user.exp)) user.exp = 0
-            if (!isNumber(user.coin)) user.coin = 10
-            if (!('registered' in user)) user.registered = false
-            if (!user.registered) { if (!('name' in user)) user.name = m.name }
-            if (!('banned' in user)) user.banned = false
-            if (!('rowner' in user)) user.rowner = creador ? true : false
-            if (!('owner' in user)) user.owner = propietario ? true : false
-            if (!('modr' in user)) user.modr = moderador ? true : false
-            if (!('premium' in user)) user.premium = premium ? true : false
-            if (!('banActor' in user)) user.banActor = ''
-        } else global.db.data.users[m.sender] = {
-            rowner: m.Bot == m.sender ? true : creador ? true : false,
-            owner: m.Bot == m.sender ? true : propietario ? true : false,
-            modr: m.Bot == m.sender ? true : moderador ? true : false,
-            premium: m.Bot == m.sender ? true : premium ? true : false,
-            banActor: '',
-            lastmiming: 0,
-            lastrob: 0,
-            exp: global.rpg.data.exp,
-            coin: global.rpg.data.coin,
-            registered: false,
-            getname: m.name,
-            name: m.name,
-            banned: false,
-            role: global.rpg.data.role,
-            nivel: global.rpg.data.nivel
-        }
-
-        let chat = global.db.data.chats[m.chat]
-        if (typeof chat !== 'object') global.db.data.chats[m.chat] = {}
-        if (chat) {
-            if (!('isBanned' in chat)) chat.isBanned = false
-            if (!('welcome' in chat)) chat.welcome = false
-            if (!('detect' in chat)) chat.detect = true
-            if (!('delete' in chat)) chat.delete = true
-            if (!('antiTraba' in chat)) chat.antiTraba = true
-            if (!('antiLink' in chat)) chat.antiLink = false
-        } else global.db.data.chats[m.chat] = {
-            commands: {
-                servicio: true,
-                rpg: true,
-                adminUse: false,
-            },
-            isBanned: false,
-            welcome: false,
-            detect: true,
-            delete: true,
-            antiTraba: false,
-            antiLink: false,
-        }
-
-        let settings = global.db.data.settings[m.Bot]
-        if (typeof settings !== 'object') global.db.data.settings[m.Bot] = {}
-        if (settings) {
-            if (!('objecto' in settings)) settings.objecto = {}
-            if (!('autoread' in settings)) settings.autoread = false
-            if (!('restrict' in settings)) settings.restrict = true
-        } else global.db.data.settings[m.Bot] = {
-            objecto: {},
-            SubBots: {},
-            autoread: false,
-            OwnerUse: false,
-            antiPrivado: false
-        }
-
-        let cloud = global.db.data.cloud[m.sender]
-        if (typeof cloud !== 'object') global.db.data.cloud[m.sender] = {}
-        if (cloud) {
-            if (!('saveFiles' in cloud)) cloud.saveFiles = []
-        } else global.db.data.cloud[m.sender] = {
-            saveFiles: []
-        }
-    } catch (e) { console.error(e) }
-
-    m.isROwner = global.db.data.users[m.sender].rowner
-    m.isOwner = global.db.data.users[m.sender].owner
-    m.isModr = global.db.data.users[m.sender].modr
-    m.isPrems = global.db.data.users[m.sender].premium
+    m.isROwner = m.user() == 'rowner'
+    m.isOwner = m.user() == 'owner'
+    m.isModr = m.user() == 'modr'
+    m.isPrems = m.user() == 'premium'
 
     m.body = (m.type(m.message) === 'conversation') ? m.message.conversation : (m.type(m.message) == 'imageMessage') ? m.message.imageMessage.caption : (m.type(m.message) == 'videoMessage') ? m.message.videoMessage.caption : (m.type(m.message) == 'extendedTextMessage') ? m.message.extendedTextMessage.text : ''
     m.budy = (typeof m.body == 'string' ? m.body : '')
@@ -176,7 +96,7 @@ export async function messages_upsert(conn, m, store, subBot = false) {
 
     if (global.db.data.settings[m.Bot].autoread) conn.readMessages([m.key])
 
-    try { await sendCase(conn, m, store) } catch (e) { conn.sendMessage(global.owner.find(o => o[2])?.[0] + '@s.whatsapp.net', { text: `*¡Se detecto ${subBot ? 'en un subBot' : 'en el Bot'}¡:*\n\n*▢ Comando :* ${prefix + m.command}\n*▢ Usuario:* wa.me/${m.sender.split("@")[0]}\n*▢ Chat:* ${m.chat}\n\n\`\`\`${format(e)}\`\`\` \n`.trim() }, { quoted: m }); console.log('Error: ' + e) }
+    try { await sendCase(conn, m, store) } catch (e) { conn.sendMessage(global.owner.find(o => o[2])?.[0] + '@s.whatsapp.net', { text: `*¡Se detecto ${subBot ? 'en un subBot' : 'en el Bot'}¡:*\n\n*▢ Comando :* ${prefix + m.command}\n*▢ Usuario:* wa.me/${m.sender.split("@")[0]}\n*▢ Chat:* ${m.chat}\n\n\`\`\`${format(e)}\`\`\` \n`.trim() }, { quoted: m }); console.log(format(e)) }
 }
 
 export async function groups_update(conn, json) {
@@ -220,5 +140,108 @@ export async function group_participants_update(conn, anu) {
         case 'promote': text = '@user Ahora es admin!'
         case 'demote': if (!text) text = '@user Ya no es admin'; text = text.replace('@user', '@' + participants[0].split('@')[0]); if (chat.detect) conn.sendMessage(id, { text: text, mentions: [participants] })
             break
+    }
+}
+
+export async function database(conn, m) {
+    if (!m) return;
+    m = m.messages[0]
+    m.chat = m.key.remoteJid
+    m.sender = m.key.participant || m.participant || m.chat || ''
+    m.Bot = conn.user.id.split(":")[0] + "@s.whatsapp.net"
+
+    const globalOwner = (sender) => {
+        const creador = (global.owner.find(o => o[2])?.[0] + '@s.whatsapp.net').includes(sender)
+        const propietario = global.owner.map(owner => owner[0].replace(/[^0-9]/g, '') + '@s.whatsapp.net').includes(sender)
+        const moderador = global.mods.map(v => v.replace(/[^0-9]/g, '') + '@s.whatsapp.net').includes(sender)
+        const premium = moderador || global.prems.map(v => v.replace(/[^0-9]/g, '') + '@s.whatsapp.net').includes(sender)
+        if (creador) return 'rowner'
+        else if (creador || propietario) return 'owner'
+        else if (propietario || moderador) return 'modr'
+        else if (moderador || premium) return 'premium'
+        else return false
+    }
+
+    const creador = globalOwner(m.sender) == 'rowner'
+    const propietario = globalOwner(m.sender) == 'owner'
+    const moderador = globalOwner(m.sender) == 'modr'
+    const premium = globalOwner(m.sender) == 'premium'
+
+    let user = global.db.data.users[m.sender]
+    if (typeof user !== 'object') global.db.data.users[m.sender] = {}
+    if (user) {
+        if (!isNumber(user.lastmiming)) user.lastmiming = 10
+        if (!isNumber(user.lastrob)) user.lastrob = 10
+        if (!isNumber(user.exp)) user.exp = 0
+        if (!isNumber(user.coin)) user.coin = 10
+        if (!('registered' in user)) user.registered = false
+        if (!user.registered) { if (!('name' in user)) user.name = m.name }
+        if (!('banned' in user)) user.banned = false
+        if (!('rowner' in user)) user.rowner = creador ? true : false
+        if (!('owner' in user)) user.owner = propietario ? true : false
+        if (!('modr' in user)) user.modr = moderador ? true : false
+        if (!('premium' in user)) user.premium = premium ? true : false
+        if (!('banActor' in user)) user.banActor = ''
+    } else global.db.data.users[m.sender] = {
+        rowner: m.Bot == m.sender ? true : creador ? true : false,
+        owner: m.Bot == m.sender ? true : propietario ? true : false,
+        modr: m.Bot == m.sender ? true : moderador ? true : false,
+        premium: m.Bot == m.sender ? true : premium ? true : false,
+        banActor: '',
+        lastmiming: 0,
+        lastrob: 0,
+        exp: global.rpg.data.exp,
+        coin: global.rpg.data.coin,
+        registered: false,
+        getname: m.name,
+        name: m.name,
+        banned: false,
+        role: global.rpg.data.role,
+        nivel: global.rpg.data.nivel
+    }
+
+    let chat = global.db.data.chats[m.chat]
+    if (typeof chat !== 'object') global.db.data.chats[m.chat] = {}
+    if (chat) {
+        if (!('isBanned' in chat)) chat.isBanned = false
+        if (!('welcome' in chat)) chat.welcome = false
+        if (!('detect' in chat)) chat.detect = true
+        if (!('delete' in chat)) chat.delete = true
+        if (!('antiTraba' in chat)) chat.antiTraba = true
+        if (!('antiLink' in chat)) chat.antiLink = false
+    } else global.db.data.chats[m.chat] = {
+        commands: {
+            servicio: true,
+            rpg: true,
+            adminUse: false,
+        },
+        isBanned: false,
+        welcome: false,
+        detect: true,
+        delete: true,
+        antiTraba: false,
+        antiLink: false,
+    }
+
+    let settings = global.db.data.settings[m.Bot]
+    if (typeof settings !== 'object') global.db.data.settings[m.Bot] = {}
+    if (settings) {
+        if (!('objecto' in settings)) settings.objecto = {}
+        if (!('autoread' in settings)) settings.autoread = false
+        if (!('restrict' in settings)) settings.restrict = true
+    } else global.db.data.settings[m.Bot] = {
+        objecto: {},
+        SubBots: {},
+        autoread: false,
+        OwnerUse: false,
+        antiPrivado: false
+    }
+
+    let cloud = global.db.data.cloud[m.sender]
+    if (typeof cloud !== 'object') global.db.data.cloud[m.sender] = {}
+    if (cloud) {
+        if (!('saveFiles' in cloud)) cloud.saveFiles = []
+    } else global.db.data.cloud[m.sender] = {
+        saveFiles: []
     }
 }

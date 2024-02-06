@@ -1,5 +1,5 @@
 {
-  "name": "ZennBot",
+  "name": "zenn-bot",
   "version": "1.2.0",
   "description": "zzz",
   "type": "module",
@@ -16,6 +16,7 @@
     "@bochilteam/scraper": "^4.2.4",
     "@whiskeysockets/baileys": "^6.5.0",
     "@hapi/boom": "10.0.1",
+    "google-it": "^1.6.4",
     "awesome-phonenumber": "^6.2.0",
     "axios": "^1.6.2",
     "chalk": "^5.3.0",

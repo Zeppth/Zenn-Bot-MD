@@ -1,7 +1,7 @@
 // by Zeppth
 // Exporta la función sendCase que maneja los comandos
 
-import { pinterest } from '@bochilteam/scraper'
+import googleIt from 'google-it'
 import PhoneNumber from 'awesome-phonenumber'
 import gtts from 'node-gtts';
 import axios from 'axios'
@@ -24,7 +24,7 @@ import './config.js'
 import { generateProfilePicture, overlayImages } from './lib/overlayImages.js'
 import ytdl from './lib/ytdl2.js'
 import { SubBot } from './lib/subBot.js'
-import { YoutTube, dlmp3, ytIdRegex } from './lib/ytdlmp.js'
+import { YoutTube, ytIdRegex } from './lib/ytdlmp.js'
 
 const formatSize = sizeFormatter({ std: 'JEDEC', decimalPlaces: 2, keepTrailingZeroes: false, render: (literal, symbol) => `${literal} ${symbol}B` })
 
@@ -61,6 +61,7 @@ let MenuRandom = `╔I *「 RANDOM 」*
 ║├ %prefix creador
 ║├ %prefix audios (en desarrollo)
 ║├ %prefix info (en desarrollo)
+║├ %prefix ping 
 ║│
 ║╰┬—I *「 SubBots 」*
 ║╭╯
@@ -94,7 +95,7 @@ let MenuRpg = `╔I *「 JUEGOS RPG 」*
 ║╭—————————
 ║├ %prefix level
 ║├ %prefix perfil
-║├ %prefix buy <cantidad>
+║├ %prefix buy *<cantidad>*
 ║├ %prefix minar
 ║├ %prefix robar *@user*
 ║├ %prefix slot *suerte*
@@ -114,7 +115,8 @@ let MenuServicio = `╔I *「 SERVICIO 」*
 ║├ %prefix IA (texto)
 ║├ %prefix sticker *<imagen/video>*
 ║├ %prefix pinterest (en desarrollo)
-║├ %prefix imagen (text)
+║├ %prefix imagen *(text)*
+║├ %prefix google *(texto)*
 ║├ %prefix ytsearch *(texto)*
 ║├ %prefix playmp3 *(texto) <audio>*
 ║├ %prefix playmp4 *(texto) <video>*
@@ -233,31 +235,30 @@ export async function sendCase(conn, m, store, proto) {
     if (!(m.isROwner ?? m.isOwner ?? m.isModr ?? m.isAdmin) && data.chats[m.chat].commands.adminUse) return;
     if (!(m.isROwner ?? m.isOwner ?? m.isModr) && data.settings[m.Bot].OwnerUse) return;
 
-    const database = (object, m) => global.db.data[object][m]
     const items = (UserXp, xpNecesario) => { let _false = false; if (UserXp < xpNecesario) _false = false; else _false = true; return _false }
-    const premium = (sender) => { if (!sender) return; const user = data.users[sender]; return user.premium ? true : user.modr ? true : user.owner ? true : user.rowner ? true : false }
 
     function quesCoin() {
         let object = false
-        if (!database('chats', m.chat).commands.rpg) return;
-        const usuario = database('users', m.sender)
+        if (!m.data('chats', m.chat).commands.rpg) return;
+        const usuario = m.data('users', m.sender)
         if (usuario.coin == 0 || usuario.coin < 1) { m.reply(`*¡Ups!* Parece que te has quedado sin coins para utilizar algunas funciones T_T. Puedes comprar más coins usando este comando:\n\n${prefix}comprar <cantidad>`); object = true } else if (usuario.coin == 4) m.reply(`*¡Atención!* Solo te quedan 3 coins. No olvides que puedes adquirir más coins utilizando el comando *${prefix}comprar <cantidad>* ¡Asegúrate de tener suficientes coins para seguir usando este Bot!`)
         return object
     }
 
     function remCoin(coin = 1) {
-        if (!database('chats', m.chat).commands.rpg) return;
-        const usuario = database('users', m.sender)
-        return usuario.coin = premium(m.sender) ? usuario.coin - 0 : usuario.coin - (coin == true ? 1 : coin)
+        if (!m.data('chats', m.chat).commands.rpg) return;
+        const usuario = m.data('users', m.sender)
+        return usuario.coin = m.user() ? usuario.coin - 0 : usuario.coin - (coin == true ? 1 : coin)
     }
 
-    if (!(database('users', m.sender).name == m.name)) { if (!database('users', m.sender).registered) { database('users', m.sender).name = m.name } }
-    if (!(database('users', m.sender).getname == m.name)) { database('users', m.sender).getname = m.name }
+    if (!(m.data('users', m.sender).name == m.name)) { if (!m.data('users', m.sender).registered) { m.data('users', m.sender).name = m.name } }
+    if (!(m.data('users', m.sender).getname == m.name)) { m.data('users', m.sender).getname = m.name }
 
     if (!conn.question) { conn.question = {} }
     if (!conn.transferencia) { conn.transferencia = {} }
     if (!conn.SerBot) { conn.SerBot = {} }
     if (!conn.SubBot) { conn.SubBot = {} }
+    if (!conn.object) { conn.object = {} }
 
     if (conn.question[m.sender]) {
         const object = conn.question
@@ -291,9 +292,9 @@ export async function sendCase(conn, m, store, proto) {
         }
 
         if (m.body.toLowerCase().includes('si')) {
-            if (premium(User)) console.log('@User')
-            else database('users', User)[object.item] -= object.cantidad
-            database('users', destino)[object.item] += object.cantidad
+            if (m.user(User)) console.log('@User')
+            else m.data('users', User)[object.item] -= object.cantidad
+            m.data('users', destino)[object.item] += object.cantidad
 
             m.reply(`● *Transferencia realizada ✓*\n\n*• ${object.cantidad} ${object.item}* a @${numero}`)
             clearTimeout(setTimeout)
@@ -359,10 +360,50 @@ export async function sendCase(conn, m, store, proto) {
         }
     }
 
-    database('users', m.sender).exp += Math.floor(Math.random() * 5) + 1
+    if (conn.object.play) {
+        const upsert = m.body.toLowerCase();
+        const data = conn.object.play[m.sender]
+        if (conn.object.play[m.sender]) {
+            if (upsert == '1' || upsert == 'mp4' || upsert == 'video') {
+                await m.react(rwait)
+                try {
+                    const { title, quality, videoUrl } = await ytdl.mp4(data.url)
+                    let cap = `*『 DV-YouTube 』*\n\n▢ *Título:* ${title}\n▢ *Calidad:* ${quality}`.trim()
+                    await conn.sendMessage(m.chat, { document: { url: videoUrl }, caption: cap, mimetype: 'video/mp4', fileName: title + `.mp4` }, { quoted: m });
+                    m.react(done);
+                    remCoin(true)
+                    clearTimeout(data.setTimeout);
+                    delete conn.object.play[m.sender]
+                } catch { m.react(error); return }
+            }
+
+            else if (upsert == '2' || upsert == 'mp3' || upsert == 'audio') {
+                await m.react(rwait)
+                try {
+                    const mp3 = await ytdl.mp3(data.url)
+                    conn.sendMessage(m.chat, { audio: fs.readFileSync(mp3.path), contextInfo: { externalAdReply: { title: mp3.info.title, body: mp3.info.author, previewType: "PHOTO", thumbnail: mp3.info.thumbnail } }, mimetype: "audio/mp4", fileName: `${mp3.info.title}.mp3` }, { quoted: m });
+                    m.react(done);
+                    remCoin(true);
+                    fs.unlinkSync(mp3.path);
+                    clearTimeout(data.setTimeout);
+                    delete conn.object.play[m.sender]
+                } catch (e) { m.react(error); return }
+            }
+            else if (upsert == '3' || upsert == 'cancelar') {
+                m.reply('Acción cancelada.')
+                clearTimeout(data.setTimeout);
+                delete conn.object.play[m.sender]
+            }
+        }
+    }
+
+    m.data('users', m.sender).exp += Math.floor(Math.random() * 5) + 1
 
     ////////////////////////GRUPOS
     switch (m.command) {
+        case 'outplay': {
+            if (m.args[0]) m.reply(await outplay(m.args[0]))
+        } break
         case 'startbot': {
             if (m.fromMe) return;
             const text = `No tienes una sesión activa, o tu sesión fue interrumpida debido a problemas de conexión.\n\nCrea una nueva utilizando el comando *.serBot*.`
@@ -377,16 +418,20 @@ export async function sendCase(conn, m, store, proto) {
 
         case 'stopbot': {
             if (!m.fromMe) return;
-            conn.mySubBot = true
+            const SubBot = global.db.data.settings[m.Bot].SubBots
+            if (SubBot[sender]) return SubBot[sender].settings.myBot = false
+        } break
+
+        case 'killbot': {
+            if (!m.fromMe) return;
             const stopBot = (stop = false) => {
                 if (!stop) return
                 try { conn.ws.close() } catch { };
                 console.log('Conexión cerrada')
+                m.reply('Conexión detenida')
                 conn.ev.removeAllListeners();
-                connect.start = false
             }
             stopBot(true)
-            m.reply('Conexión detenida')
         } break
 
         case 'subbot': case 'serbot': {
@@ -659,7 +704,7 @@ ${listAdmin}
         } break
 
         case 'estado': {
-            const { isBanned, welcome, antiLink, antiTraba, commands } = database('chats', m.chat)
+            const { isBanned, welcome, antiLink, antiTraba, commands } = m.data('chats', m.chat)
             let text = (`• ${antiTraba ? '( ✓ )' : '( ✗ )'} : Anti-Traba
 • ${isBanned ? '( ✓ )' : '( ✗ )'} : Baneado
 • ${welcome ? '( ✓ )' : '( ✗ )'} : Bienvenida
@@ -671,7 +716,7 @@ ${listAdmin}
     }
 
     ////////////////////////DESCARGAS
-    if (database('chats', m.chat).commands.servicio) {
+    if (m.data('chats', m.chat).commands.servicio) {
         switch (m.command) {
             case 'mediafire': case 'mf': {
                 if (!m.args[0]) return m.reply('Y el link?')
@@ -689,7 +734,34 @@ Enviando archivo${readMore}`.trim();
                 await conn.sendMessage(m.chat, { document: { url: (await conn.getFile(link).data).catch(e => conn.getFile(link).data) }, mimetype: 'video/' + mime, fileName: name }, { quoted: m }); m.react(done)
             } break
 
-            case 'play': case 'yta': case 'playmp3': case 'audio': case 'ytv': case 'playmp4': case 'video': {
+            case 'play': {
+                if (quesCoin()) return m.react('💲')
+                if (!m.text) return m.reply(`*Ingresa el título de una canción*`)
+                const vid = (await yts(m.text)).all[0]
+                if (!vid) return m.reply(`Sin resultados`)
+                const { title, description, thumbnail, videoId, timestamp, views, ago, url } = vid
+
+                let texto = `▢ ${emoji.title} *Titulo :* ${title}\n`
+                texto += `▢ ${emoji.publicado} *Publicado :* ${ago}\n`
+                texto += `▢ ${emoji.duracion} *Duración :* ${timestamp}\n`
+                texto += `▢ ${emoji.vistas} *Vistas :* ${views}\n\n`
+                texto += `● *Por favor*, ingrese *1* o *2*. Ingrese *3* si desea cancelar esta acción.\n\n`
+                texto += `*1. (mp4 / video)*\n`
+                texto += `*2. (mp3 / audio)*\n\n`
+                texto += `${readMore}▢ 🧾 *Descripcion :* ${description}`.trim()
+
+                await new Promise(async (resolve, reject) => { try { await conn.sendMessage(m.chat, { text: texto, contextInfo: { externalAdReply: { title: title, body: description, thumbnailUrl: thumbnail, mediaType: 1, renderLargerThumbnail: true } } }, { quoted: m }); resolve() } catch (error) { console.error(error); reject(error) } })
+
+                conn.object.play = {}
+                conn.object.play[m.sender] = {
+                    chat: m.chat,
+                    url: `https://www.youtube.com/watch?v=${videoId}`,
+                    thumbnail: thumbnail,
+                    setTimeout: setTimeout(async () => (await m.reply('El tiempo de respuesta se ha agotado.'), await m.react('❗'), delete conn.object.play[m.sender]), 60 * 1000)
+                }
+            } break
+
+            case 'yta': case 'playmp3': case 'audio': case 'ytv': case 'playmp4': case 'video': {
                 if (quesCoin()) return m.react('💲')
 
                 if (!m.text) return m.reply(`*Ingresa el título de una canción*`)
@@ -700,13 +772,13 @@ Enviando archivo${readMore}`.trim();
                 const _Url = `https://www.youtube.com/watch?v=${videoId}`
 
                 async function sendMsge(text) {
-                    await new Promise(async (resolve, reject) => { try { await conn.sendMessage(m.chat, { text: play.replace('@Cargando', text), contextInfo: { externalAdReply: { title: title, body: description, thumbnailUrl: thumbnail, mediaType: 1, renderLargerThumbnail: true } } }, { quoted: m }); resolve() } catch (error) { console.error(error); await conn.sendMessage(m.chat, { text: play.replace('@Cargando', text), contextInfo: { externalAdReply: { title: title, body: description, thumbnailUrl: thumbnail, mediaType: 1, renderLargerThumbnail: true } } }, { quoted: m }); reject(error) } });
+                    await new Promise(async (resolve, reject) => { try { await conn.sendMessage(m.chat, { text: play.replace('@Cargando', text), contextInfo: { externalAdReply: { title: title, body: description, thumbnailUrl: thumbnail, mediaType: 1, renderLargerThumbnail: true } } }, { quoted: m }); resolve() } catch (error) { console.error(error); reject(error) } });
                 }
 
                 if (m.command == 'playmp3' || m.command == 'yta' || m.command == 'audio') {
                     try {
                         await sendMsge('Cargando audio'); m.react(rwait)
-                        const mp3 = await dlmp3(_Url)
+                        const mp3 = await ytdl.mp3(_Url)
                         conn.sendMessage(m.chat, { audio: fs.readFileSync(mp3.path), contextInfo: { externalAdReply: { title: title, body: mp3.info.author, previewType: "PHOTO", thumbnail: mp3.info.thumbnail } }, mimetype: "audio/mp4", fileName: `${title}.mp3` }, { quoted: m }); m.react(done); remCoin(true); fs.unlinkSync(mp3.path)
                     } catch (e) { m.react(error); return }
                 }
@@ -730,7 +802,7 @@ Enviando archivo${readMore}`.trim();
                     const urls = YoutTube(m.text)
                     for (let i = 0; i < urls.length; i++) {
                         try {
-                            const mp3 = await dlmp3(urls[i])
+                            const mp3 = await ytdl.mp3(urls[i])
                             conn.sendMessage(m.chat, { audio: fs.readFileSync(mp3.path), contextInfo: { externalAdReply: { title: mp3.info.title, body: mp3.info.author, previewType: "PHOTO", thumbnail: mp3.info.thumbnail } }, mimetype: "audio/mp4", fileName: `${mp3.info.title}.mp3` }, { quoted: m }); m.react(done); remCoin(true); fs.unlinkSync(mp3.path)
                         } catch { m.react(error) }
                     }
@@ -821,16 +893,6 @@ Enviando archivo${readMore}`.trim();
                 try { m.react(rwait); await GDriveDl(args[0]).then(async (res) => { if (!res) return m.reply(res); conn.sendMessage(m.chat, { document: { url: res.downloadUrl }, mimetype: res.mimetype, fileName: `${res}` }, { quoted: m }); remCoin(true) }) } catch (e) { m.react(error) }
             } break
 
-            case 'pinterest': case 'pin': {
-                if (!m.text) return m.reply(`${pushname} Please provide a search term!`);
-                m.react(rwait)
-                const pintst = await pinterest(m.text)
-                const results = []
-                const Numero = 5
-                for (let i = 0; i < Numero && i < pintst.length; i++) { results.push(pintst[Math.floor(Math.random() * pintst.length)]) }
-                for (let i = 0; i < results.length; i++) { conn.sendMessage(m.chat, { image: { url: results[i] } }, { quoted: m }) }
-            } break
-
             case 'gimage': case 'image': case 'imagen': {
                 if (quesCoin()) return m.react('💲')
 
@@ -843,7 +905,6 @@ Enviando archivo${readMore}`.trim();
                         if (!result || result.length === 0) { return m.reply("No se han encontrado imágenes para el término de búsqueda dado.") }
                         const images = result[Math.floor(Math.random() * result.length)].url
                         try { conn.sendMessage(m.chat, { image: { url: images }, caption: `▢ *Resultado de:* ${m.text}\n▢  *Buscador: 『 Google 』*`, }, { quoted: m }); m.react(done); remCoin(true) } catch { m.react('❌') }
-
                     });
                 } catch { m.react(error) }
             } break
@@ -858,6 +919,14 @@ Enviando archivo${readMore}`.trim();
                     var Texto = OpenAI.result
                     await m.reply(Texto); remCoin(true)
                 } catch { m.react(error) }
+            } break
+
+            case 'google': {
+                if (!m.text) return m.reply(`Que quieres buscar en Google?`)
+                m.react(rwait)
+                let search = await googleIt({ query: m.text })
+                let msg = search.map(({ title, link, snippet }) => { return `*${title}*\n_${link}_\n_${snippet}_` }).join`\n\n`
+                try { await m.reply(msg); m.react(done) } catch (e) { m.react(error) }
             } break
 
             case 'voz': {
@@ -955,11 +1024,11 @@ Enviando archivo${readMore}`.trim();
     }
 
     ////////////////////////RPG
-    if (database('chats', m.chat).commands.rpg) {
+    if (m.data('chats', m.chat).commands.rpg) {
         switch (m.command) {
             case 'level': case 'nivel': case 'subirnivel': case 'lvl': case 'levelup': {
                 if (!(m.sender in global.db.data.users)) return m.reply(`No estas en mi base de datos`)
-                const User = database('users', m.sender)
+                const User = m.data('users', m.sender)
                 let nivel = User.nivel
                 let Exp = User.exp
                 const NivelXp = (level) => { return level * global.rpg.precios.nivel }
@@ -970,7 +1039,7 @@ Enviando archivo${readMore}`.trim();
                     const Role = global.rpg.role.find(r => r.nivel === (nivel > 99 ? 100 : nivel))
                     User.nivel = nivel
                     User.role = Role ? Role.name : ''
-                    User.exp = premium(m.sender) ? User.exp - 0 : items(User.exp, ExpB) ? User.exp - ExpB : 500
+                    User.exp = m.user() ? User.exp - 0 : items(User.exp, ExpB) ? User.exp - ExpB : 500
                     Texto = (`*『 SUBES DE LEVEL 』*\n\n● *Nombre :* @${m.sender.split`@`[0]}\n▢ Nivel : *${nivel}*\n▢ Rango : *${User.role}*\n - ${ExpB} *XP*\n${User.nivel > 99 ? `\n● @${m.sender.split`@`[0]} Gracias por usar este Bot!` : '*Cuanto más interactúes con los bots, mayor será tu nivel*'}`)
                 }
 
@@ -1031,7 +1100,7 @@ Enviando archivo${readMore}`.trim();
                 const sender = m.quoted ? m.quoted.sender : m.mentionedJid && m.mentionedJid[0] ? m.mentionedJid[0] : m.fromMe ? conn.user.jid : m.sender
                 if (!(sender in global.db.data.users)) return m.reply(`El usuario no se encuentra en mi base de datos`)
                 let pp = await conn.profilePictureUrl(sender, 'image').catch(_ => './multimedia/imagenes/avatar.jpg')
-                let { coin, exp, nivel, role, registered, name } = database('users', m.sender)
+                let { coin, exp, nivel, role, registered, name, premium } = m.data('users', sender)
                 let Text = `
 ┌───「 *PERFIL* 」
 ▢ *Nombres:* 
@@ -1039,7 +1108,7 @@ Enviando archivo${readMore}`.trim();
 • @${sender.replace(/@.+/, '')}
 ▢ *Numero:* ${PhoneNumber('+' + sender.replace('@s.whatsapp.net', '')).getNumber('international')}
 ▢ *Link:* wa.me/${sender.split`@`[0]}
-▢ *Premium* : ${m.isPrems ? 'Si' : 'No'}
+▢ *m.user()* : ${ premium ? 'Si' : 'No'}
 ▢ *coins :* ${coin}
 ▢ *XP :* ${exp}
 ▢ *Nivel :* ${nivel}
@@ -1047,7 +1116,7 @@ Enviando archivo${readMore}`.trim();
 ▢ *Registrado :* ${registered ? 'Si' : 'No'}
 └──────────────`.trim()
 
-                const { path } = await overlayImages([pp, registered ? m.isPrems ? './multimedia/iconos/premium.png' : './multimedia/iconos/registrado.png' : './multimedia/iconos/usuario.png'], { tamano: '%15', localizacion: ['abajoIzquierda', 1] })
+                const { path } = await overlayImages([pp, registered ? premium ? './multimedia/iconos/m.user().png' : './multimedia/iconos/registrado.png' : './multimedia/iconos/usuario.png'], { tamano: '%15', localizacion: ['abajoIzquierda', 1] })
 
                 conn.sendMessage(m.chat, { image: fs.readFileSync(path), caption: Text, contextInfo: { mentionedJid: [...Text.matchAll(/@(\d{0,16})/g)].map(v => v[1] + '@s.whatsapp.net'), externalAdReply: { title: registered ? name : m.name, body: 'Usuario de Zenn Bot MD', thumbnail: fs.readFileSync('./multimedia/imagenes/thumbnail.jpg') } } }, { quoted: m }); m.react(done)
             } break
@@ -1063,7 +1132,7 @@ Enviando archivo${readMore}`.trim();
             } break
 
             case 'slot': {
-                const { exp, nivel } = database('users', m.sender)
+                const { exp, nivel } = m.data('users', m.sender)
                 if (exp < 300) return m.reply('Es necesario tener un mínimo de *300 XP* para poder usar este comando.')
                 if (nivel == 4 || nivel < 5) return m.reply('Para utilizar este comando, es necesario que te encuentres en el nivel 5 o en uno más avanzado.')
 
@@ -1077,22 +1146,22 @@ Enviando archivo${readMore}`.trim();
 
                 if (rueda1[1] === rueda2[1] && rueda2[1] === rueda3[1]) {
                     texto += "● *¡Felicidades!* Las tres frutas del centro son iguales. *Ganaste 1000 XP*."
-                    database('users', m.sender).exp += 1000
+                    m.data('users', m.sender).exp += 1000
                     conn.sendMessage(m.chat, { audio: fs.readFileSync('./multimedia/audios/bara.m4a'), contextInfo: { externalAdReply: { title: `¡Felicidades! +1000 XP`, body: `Usuario de Zenn Bot MD`, thumbnailUrl: await conn.profilePictureUrl(m.sender, 'image') } }, fileName: `Bot.mp3`, mimetype: 'audio/mpeg', ptt: true }, { quoted: m })
 
                 } else if (rueda1[1] === rueda2[1] || rueda2[1] === rueda3[1] || rueda1[1] === rueda3[1]) {
                     texto += "● Dos frutas del centro son iguales. *Ganaste 500 XP*."
-                    database('users', m.sender).exp += 500
+                    m.data('users', m.sender).exp += 500
                 } else {
                     texto += "● Las frutas del centro son diferentes. *Perdiste 200 XP*. U.U"
-                    database('users', m.sender).exp = premium(m.sender) ? exp - 0 : exp - 200
+                    m.data('users', m.sender).exp = m.user() ? exp - 0 : exp - 200
                 }
 
                 m.reply(texto)
             } break
 
             case 'ppt': {
-                const User = database('users', m.sender)
+                const User = m.data('users', m.sender)
                 const Empate = 100
                 const ganar = 300
                 const perder = 200
@@ -1110,7 +1179,7 @@ Enviando archivo${readMore}`.trim();
                         User.exp += ganar
                         m.reply(`▢ *Ganaste* 🎊\n\n‣ Tú : ${m.text}\n‣ Bot : ${randItem}\n\n🎁 Puntos *+${ganar} XP*`)
                     } else {
-                        User.exp = premium(m.sender) ? User.exp - 0 : items(User.exp, perder) ? User.exp - perder : 0
+                        User.exp = m.user() ? User.exp - 0 : items(User.exp, perder) ? User.exp - perder : 0
                         m.reply(`▢ *Perdiste*\n\n‣ Tú : ${m.text}\n‣ Bot : ${randItem}\n\n Puntos *-${perder} XP*`)
                     }
                 } else if (m.text == 'tijera') {
@@ -1118,7 +1187,7 @@ Enviando archivo${readMore}`.trim();
                         User.exp += ganar
                         m.reply(`▢ *Ganaste* 🎊\n\n‣ Tú : ${m.text}\n‣ Bot : ${randItem}\n\n🎁 Puntos *+${ganar} XP*`)
                     } else {
-                        User.exp = premium(m.sender) ? User.exp - 0 : items(User.exp, perder) ? User.exp - perder : 0
+                        User.exp = m.user() ? User.exp - 0 : items(User.exp, perder) ? User.exp - perder : 0
                         m.reply(`▢ *Perdiste*\n\n‣ Tú : ${m.text}\n‣ Bot : ${randItem}\n\nPuntos *-${perder} XP*`)
                     }
                 } else if (m.text == 'papel') {
@@ -1126,7 +1195,7 @@ Enviando archivo${readMore}`.trim();
                         User.exp += ganar
                         m.reply(`▢ *Ganaste* 🎊\n\n‣ Tú : ${m.text}\n‣ Bot : ${randItem}\n\n🎁 Puntos *+${ganar} XP*`)
                     } else {
-                        User.exp = premium(m.sender) ? User.exp - 0 : items(User.exp, perder) ? User.exp - perder : 0
+                        User.exp = m.user() ? User.exp - 0 : items(User.exp, perder) ? User.exp - perder : 0
                         m.reply(`▢ *Perdiste*\n\n‣ Tú : ${m.text}\n‣ Bot : ${randItem}\n\nPuntos *-${perder} XP*`)
                     }
                 } else { m.reply(`Seleccione piedra/papel/tijera\n\nEjemplo : *${global.prefix + m.command}* papel`) }
@@ -1136,19 +1205,19 @@ Enviando archivo${readMore}`.trim();
                 if (!m.text) return m.reply(`• Para utilizar el comando cada parte de este debe estar separada por “|”. Espesifica el item (ejemplo coin, xp), la cantidad y el usuario de destino. transferir [ item ] | [ cantidad ] | [ destino ].\n\n• Ejemplo : *.transferir coin | 10 | @${m.sender.split`@`[0]}.*`)
 
                 if (conn.transferencia[m.sender]) return m.reply('Ya estas haciendo una transferencia')
-                const [objeto, cantidad, destino] = m.text.split('|')
-                if (!(objeto && cantidad && destino)) return m.reply(`• Para utilizar el comando cada parte de este debe estar separada por “|”. Espesifica el item (ejemplo coin, xp), la cantidad y el usuario de destino. transferir [ item ] | [ cantidad ] | [ destino ].\n\n• Ejemplo : *.transferir coin | 10 |  @${m.sender.split`@`[0]}.*`)
+                const [objeto, cantidad, destino] = (m.text.split(' ').join('')).split('|')
+                if (!(objeto || cantidad || destino)) return m.reply(`• Para utilizar el comando cada parte de este debe estar separada por “|”. Espesifica el item (ejemplo coin, xp), la cantidad y el usuario de destino. transferir [ item ] | [ cantidad ] | [ destino ].\n\n• Ejemplo : *.transferir coin | 10 |  @${m.sender.split`@`[0]}.*`)
 
                 let UserDestino = m.mentionedJid && m.mentionedJid[0] ? m.mentionedJid[0] : destino ? (destino.replace(/[@ .+-]/g, '') + '@s.whatsapp.net') : ''
 
                 if (!(UserDestino in global.db.data.users)) return m.reply(`El Usuario no está en mi base de datos`)
 
                 const Cantidad = parseInt(cantidad)
-                const { exp, coin } = database('users', m.sender)
+                const { exp, coin } = m.data('users', m.sender)
 
                 let item = false
                 if (objeto == 'coin' || objeto == 'coins') {
-                    if (m.isPrems && !m.isModr) return m.reply('Como usuario premium, dispones de una cantidad ilimitada de coins. Sin embargo, debido a esto no puedes compartir ninguna de estas coins')
+                    if (m.isPrems && !m.isModr) return m.reply('Como usuario m.user(), dispones de una cantidad ilimitada de coins. Sin embargo, debido a esto no puedes compartir ninguna de estas coins')
 
                     if (coin < Cantidad) return m.reply('No tienes sufientes coins para transferir'); item = 'coin'
                 } else if (objeto == 'exp' || objeto == 'xp') { if (exp < Cantidad) return m.reply('No tienes sufiente *EXP* para transferir'); item = 'exp' }
@@ -1169,7 +1238,7 @@ Enviando archivo${readMore}`.trim();
             } break;
 
             case 'unreg': {
-                const user = database('users', m.sender)
+                const user = m.data('users', m.sender)
                 if (!user.registered) return m.sms('unreg')
                 if (!m.args[0]) m.reply(`*Ingrese su número de serie*\nVerifique su número de serie con el comando:\n\n*${global.prefix}nserie*`)
                 let NumeroSerie = createHash('md5').update(m.sender).digest('hex')
@@ -1179,7 +1248,7 @@ Enviando archivo${readMore}`.trim();
             } break
 
             case 'nserie': case 'sn': case 'mysn': {
-                const user = database('users', m.sender)
+                const user = m.data('users', m.sender)
                 if (!user.registered) return m.sms('unreg')
                 let NumeroSerie = createHash('md5').update(m.sender).digest('hex')
                 m.reply(`\n● *Numero de serie* : ${NumeroSerie}`.trim())
@@ -1187,7 +1256,7 @@ Enviando archivo${readMore}`.trim();
 
             case 'verify': case 'reg': case 'register': case 'registrar': {
                 let Reg = /\|?(.*)([.|] *?)([0-9]*)$/i
-                const user = database('users', m.sender)
+                const user = m.data('users', m.sender)
 
                 if (user.registered === true) return m.reply(`Ya estás registrado\n\n¿Quiere volver a registrarse?\n\nUse este comando para eliminar su registro \n*${global.prefix}unreg* <Número de serie>`)
 
@@ -1215,6 +1284,18 @@ Enviando archivo${readMore}`.trim();
 
     ////////////////////////RANDOM
     switch (m.command) {
+        case 'ping': {
+            let timestamp = now();
+            let latensi = now() - timestamp;
+            exec(`neofetch --stdout`, (error, stdout, stderr) => {
+                let child = stdout.toString("utf-8");
+                let ssd = child.replace(/Memory:/, "Ram:")
+                let pongs = ["Pong!!!", "Pong!!!", "Pong!", "Pong!", "Pong!", "Pong!", "Pong", "Pong", "Pong", "Pong", "Pong ", "Pong!", "Pong!", "Pong", "Pong! Con un giro inesperado", "Pong! Con un golpe rápido", "Pong! Con un golpe fuerte", "Pong! Con un golpe preciso", "Pong! Con un golpe bajo", "Pong! Con un golpe alto", "Pong! Con un golpe de revés", "Pong! Con un golpe de derecha", "Pong! Con un golpe de efecto", "Pong! Con un golpe de sorpresa", "Pong! Con un golpe de suerte", "Pong! Con un golpe de genio", "Pong! Con un golpe de maestría", "Pong! Con un golpe de campeón", "Pong! Con un golpe de leyenda", "*Pierde la partida por un golpe inesperado*", "*Pierde la partida por un golpe rápido*", "*Pierde la partida por un golpe fuerte*", "*Pierde la partida por un golpe preciso*", "*Pierde la partida por un golpe bajo*", "*Pierde la partida por un golpe alto*", "*Pierde la partida por un golpe de revés*", "*Pierde la partida por un golpe de derecha*", "*Pierde la partida por un golpe de efecto*", "*Pierde la partida por un golpe de sorpresa*", "*Pierde la partida por un golpe de suerte*", "*Pierde la partida por un golpe de genio*", "*Pierde la partida por un golpe de maestría*", "*Pierde la partida por un golpe de campeón*", "*Pierde la partida por un golpe de leyenda*"]
+
+                let Pong = pongs[Math.floor(Math.random() * pongs.length)]
+                m.reply(`${ssd} ${Pong}. *Velocidad de Repuesta* ${latensi.toFixed(4)} ms`)
+            })
+        } break
         case 'info': case 'informacion': {
             let format = sizeFormatter({ std: 'JEDEC', decimalPlaces: 2, keepTrailingZeroes: false, render: (literal, symbol) => `${literal} ${symbol}B` })
             const used = process.memoryUsage()
@@ -1265,19 +1346,21 @@ ${cpus.map((cpu, i) => `${i + 1}. ${cpu.model.trim()} (${cpu.speed} MHZ)\n${Obje
         } break
 
         case 'menu': case 'help': case 'comandos': {
-            const comandos = database('chats', m.chat).commands
+            const comandos = m.data('chats', m.chat).commands
             const defaultMenu = () => {
                 let menu = `${Menu}\n\n*● Comandos RPG :* ${comandos.rpg ? 'encendido' : 'apagado'}\n*● Comandos Servicio :* ${comandos.servicio ? 'encendido' : 'apagado'}\n\n${MenuRandom}\n\n${MenuGrupos}${comandos.rpg ? '\n\n' + MenuRpg : ''}${comandos.servicio ? '\n\n' + MenuServicio : ''}\n\n${MenuPropietario}`
 
                 let text = menu.split('%prefix ').join(global.prefix)
-                text = text.replace('%name', `@${m.sender.split`@`[0]}`).replace('%prem', m.isPrems ? 'Si' : 'No').replace('%coin', m.isPrems ? '∞' : database('users', m.sender).coin).replace('%rol', database('users', m.sender).role)
+                text = text.replace('%name', `@${m.sender.split`@`[0]}`).replace('%prem', m.isPrems ? 'Si' : 'No').replace('%coin', m.isPrems ? '∞' : m.data('users', m.sender).coin).replace('%rol', m.data('users', m.sender).role)
                 return text
             }
 
             const { path } = await overlayImages(['./multimedia/imagenes/logo.png', './multimedia/iconos/nodejs.png'], { tamano: [100, 100], localizacion: ['abajoIzquierda', 50] })
 
             conn.sendMessage(m.chat, {
-                image: fs.readFileSync(path), caption: defaultMenu(), contextInfo: {
+                image: fs.readFileSync(path),
+                caption: defaultMenu(),
+                contextInfo: {
                     mentionedJid: [...defaultMenu().matchAll(/@(\d{0,16})/g)].map(v => v[1] + '@s.whatsapp.net'), externalAdReply: {
                         title: 'Zenn Bot MD (en desarrollo)',
                         body: 'Simple Bot de WhatsApp',
@@ -1290,7 +1373,7 @@ ${cpus.map((cpu, i) => `${i + 1}. ${cpu.model.trim()} (${cpu.speed} MHZ)\n${Obje
         } break
 
         case 'creador': case 'owner': {
-            await sendContactArray(conn, m.chat, [[`5216673877887`, `${database('users', '5216673877887@s.whatsapp.net').name || null}`, `⚡ Creador principal`, null], [`51907182818`, `${database('users', '51907182818@s.whatsapp.net').name || null}`, `🤝 Colaborador`, null], [`5216671993513`, `${database('users', '5216671993513@s.whatsapp.net').name || null}`, `🤝 Colaborador`, null]], { key: { fromMe: false, participant: "0@s.whatsapp.net", ...(m.chat ? { remoteJid: "status@broadcast" } : {}) }, message: { contactMessage: { displayName: 'Zenn-Bot 24/7', vcard: `BEGIN:VCARD\nVERSION:3.0\nN:XL;0,;;;\nFN:0,\nitem1.TEL;waid=${global.owner.find(o => o[2])?.[0]}:${global.owner.find(o => o[2])?.[0]}\nitem1.X-ABLabell:Ponsel\nEND:VCARD` } } })
+            await sendContactArray(conn, m.chat, [[`5216673877887`, `${m.data('users', '5216673877887@s.whatsapp.net').name || null}`, `⚡ Creador principal`, null], [`51907182818`, `${m.data('users', '51907182818@s.whatsapp.net').name || null}`, `🤝 Colaborador`, null], [`5216671993513`, `${m.data('users', '5216671993513@s.whatsapp.net').name || null}`, `🤝 Colaborador`, null]], { key: { fromMe: false, participant: "0@s.whatsapp.net", ...(m.chat ? { remoteJid: "status@broadcast" } : {}) }, message: { contactMessage: { displayName: 'Zenn-Bot 24/7', vcard: `BEGIN:VCARD\nVERSION:3.0\nN:XL;0,;;;\nFN:0,\nitem1.TEL;waid=${global.owner.find(o => o[2])?.[0]}:${global.owner.find(o => o[2])?.[0]}\nitem1.X-ABLabell:Ponsel\nEND:VCARD` } } })
 
             async function sendContactArray(conn, jid, data, quoted, options) {
                 if (!Array.isArray(data[0]) && typeof data[0] === 'string') data = [data]
@@ -1382,8 +1465,8 @@ ${cpus.map((cpu, i) => `${i + 1}. ${cpu.model.trim()} (${cpu.speed} MHZ)\n${Obje
             }
 
             else if (m.command == 'premlist') {
-                let users = Object.entries(global.db.data.users).filter(user => user[1].premium)
-                m.reply(`*『 USUARIOS PREMIUM 』*\n\n▢ Total : *${users.length}*\n\n${users ? '\n' + users.map(([jid], i) => `${i + 1}. ${conn.getName(jid) == undefined ? 'Desconocido' : conn.getName(jid)}\n▢ ${jid}`.trim()).join('\n\n') : ''}`.trim())
+                let users = Object.entries(global.db.data.users).filter(user => user[1].m.user())
+                m.reply(`*『 USUARIOS m.user() 』*\n\n▢ Total : *${users.length}*\n\n${users ? '\n' + users.map(([jid], i) => `${i + 1}. ${conn.getName(jid) == undefined ? 'Desconocido' : conn.getName(jid)}\n▢ ${jid}`.trim()).join('\n\n') : ''}`.trim())
             }
 
             else if (m.command == 'modrlist' || m.command == 'moderadorlist') {
@@ -1402,7 +1485,7 @@ ${cpus.map((cpu, i) => `${i + 1}. ${cpu.model.trim()} (${cpu.speed} MHZ)\n${Obje
             }
         } break
 
-        case 'addowner': case 'delowner': case 'addmodr': case 'addmoderador': case 'delmodr': case 'delmoderador': case 'addprem': case 'addpremium': case 'delprem': case 'delpremium': {
+        case 'addowner': case 'delowner': case 'addmodr': case 'addmoderador': case 'delmodr': case 'delmoderador': case 'addprem': case 'addm.user()': case 'delprem': case 'delm.user()': {
             const sender = m.mentionedJid[0] ? m.mentionedJid[0] : m.quoted ? m.quoted.sender : m.text.replace(/[^0-9]/g, '') + '@s.whatsapp.net'
             const db = global.db.data.users[sender]
             const usuario = sender.slice(0, -15)
@@ -1418,7 +1501,7 @@ ${cpus.map((cpu, i) => `${i + 1}. ${cpu.model.trim()} (${cpu.speed} MHZ)\n${Obje
                 if (db.owner) return m.reply('El usuario mensionado ya es owner')
                 db.owner = true
                 db.modr = true
-                db.premium = true
+                db.m.user() = true
                 conn.reply(User + ' ahora te conviertes en Owner')
             }
 
@@ -1428,7 +1511,7 @@ ${cpus.map((cpu, i) => `${i + 1}. ${cpu.model.trim()} (${cpu.speed} MHZ)\n${Obje
                 if (!db.owner) return m.reply('El usuario mensionado no es owner')
                 db.owner = false
                 db.modr = false
-                db.premium = false
+                db.m.user() = false
                 conn.reply(User + ' ya no eres owner')
             }
 
@@ -1439,7 +1522,7 @@ ${cpus.map((cpu, i) => `${i + 1}. ${cpu.model.trim()} (${cpu.speed} MHZ)\n${Obje
                 db.owner = false
                 ///////
                 db.modr = true
-                db.premium = true
+                db.m.user() = true
             }
 
             else if (m.command == 'delmodr' || m.command == 'delmoderador') {
@@ -1448,29 +1531,29 @@ ${cpus.map((cpu, i) => `${i + 1}. ${cpu.model.trim()} (${cpu.speed} MHZ)\n${Obje
                 db.owner = false
                 ///////
                 db.modr = false
-                db.premium = false
+                db.m.user() = false
                 conn.reply(User + ' ya no eres moderador')
             }
 
-            else if (m.command == 'addprem' || m.command == 'addpremium') {
+            else if (m.command == 'addprem' || m.command == 'addm.user()') {
                 if (!m.isModr ?? !m.isOwner ?? !m.isROwner) return m.sms('modr')
                 if (!isNaN(usuario && m.mentionedJid[0] && m.text)) return m.reply(textMention)
-                const text = User + ' Has sido degradado a solo usuario premium'
-                conn.reply(db.owner ? text : db.modr ? text : User + ' ahora te conviertes en un usuario premium')
+                const text = User + ' Has sido degradado a solo usuario m.user()'
+                conn.reply(db.owner ? text : db.modr ? text : User + ' ahora te conviertes en un usuario m.user()')
                 db.owner = false
                 db.modr = false
                 ///////
-                db.premium = true
+                db.m.user() = true
             }
 
-            else if (m.command == 'delprem' || m.command == 'delpremium') {
+            else if (m.command == 'delprem' || m.command == 'delm.user()') {
                 if (!m.isModr ?? !m.isOwner ?? !m.isROwner) return m.sms('modr')
                 if (!isNaN(usuario && m.mentionedJid[0] && m.text)) return m.reply(textMention)
                 db.owner = false
                 db.modr = false
                 ///////
-                db.premium = false
-                conn.reply(User + ' Ya no eres usuario premium')
+                db.m.user() = false
+                conn.reply(User + ' Ya no eres usuario m.user()')
             }
         } break
 
@@ -1518,6 +1601,17 @@ async function mediafireDl(url) {
     const rese = await axios.head(link);
     mime = rese.headers['content-type'];
     return { name, size, date, mime, link };
+}
+
+async function outplay(url) {
+    try {
+        const response = await axios.get(url);
+        const $ = cheerio.load(response.data);
+        const videoElement = $('html > body > main > section:nth-of-type(2) > video');
+        const videoLink = videoElement?.attr('src');
+        if (!videoLink) { return await conn.sendhtml(url) } { return videoLink }
+
+    } catch (error) { console.error(error) }
 }
 
 async function tts(text = 'error', lang = 'es') {
