@@ -582,7 +582,7 @@ export async function sendCase(conn, m, store, proto) {
 
         case 'infogrupo': {
             if (!m.isGroup) return m.sms('group')
-            let data = await conn.profilePictureUrl(m.chat, 'image').catch(_ => './multimedia/imagenes/avatar.jpg')
+            let data = await conn.profilePictureUrl(m.chat, 'image').catch(_ => m.multimedia('imagenes/avatar.jpg'))
             let groupAdmins = m.participants.filter(p => p.admin)
             let listAdmin = groupAdmins.map((v, i) => `${i + 1}. @${v.id.split('@')[0]}`).join('\n')
             let owner = m.groupMetadata.owner || groupAdmins.find(p => p.admin === 'superadmin')?.id || m.chat.split`-`[0] + '@s.whatsapp.net'
@@ -598,7 +598,7 @@ ${listAdmin}
 ▢ *ID del grupo* : ${m.groupMetadata.id}
 ▢ *Descripción* : \n${readMore}\n${m.groupMetadata.desc?.toString()}`.trim()
 
-            conn.sendMessage(m.chat, { image: { url: data }, caption: text, contextInfo: { mentionedJid: [...text.matchAll(/@(\d{0,16})/g)].map(v => v[1] + '@s.whatsapp.net'), externalAdReply: { title: `${m.groupMetadata.subject}`, body: 'WhatsApp grupo', thumbnail: fs.readFileSync('./multimedia/imagenes/thumbnail.jpg'), mediaType: 1 } } }, { quoted: m })
+            conn.sendMessage(m.chat, { image: { url: data }, caption: text, contextInfo: { mentionedJid: [...text.matchAll(/@(\d{0,16})/g)].map(v => v[1] + '@s.whatsapp.net'), externalAdReply: { title: `${m.groupMetadata.subject}`, body: 'WhatsApp grupo', thumbnailUrl: m.multimedia('/thumbnail.jpg'), mediaType: 1 } } }, { quoted: m })
         } break
 
         case 'grupo': {
@@ -711,7 +711,7 @@ ${listAdmin}
 • ${antiLink ? '( ✓ )' : '( ✗ )'} : Anti-Link
 • ${commands.rpg ? '( ✗ )' : '( ✓ )'} : comandos rpg
 • ${commands.servicio ? '( ✗ )' : '( ✓ )'} : comandos de descargas`).trim()
-            conn.sendMessage(m.chat, { text: text, mentions: [m.sender] }, { ephemeralExpiration: 24 * 3600, quoted: { key: { participant: '0@s.whatsapp.net' }, message: { documentMessage: { title: `[ ESTADO BOT ]`, jpegThumbnail: fs.readFileSync('./multimedia/imagenes/thumbnail.jpg') } } } })
+            conn.sendMessage(m.chat, { text: text, mentions: [m.sender] }, { ephemeralExpiration: 24 * 3600, quoted: { key: { participant: '0@s.whatsapp.net' }, message: { documentMessage: { title: `[ ESTADO BOT ]`, jpegThumbnail: m.multimedia('imagenes/thumbnail.jpg') } } } })
         } break
     }
 
@@ -1099,7 +1099,7 @@ Enviando archivo${readMore}`.trim();
             case 'perfil': case 'profile': {
                 const sender = m.quoted ? m.quoted.sender : m.mentionedJid && m.mentionedJid[0] ? m.mentionedJid[0] : m.fromMe ? conn.user.jid : m.sender
                 if (!(sender in global.db.data.users)) return m.reply(`El usuario no se encuentra en mi base de datos`)
-                let pp = await conn.profilePictureUrl(sender, 'image').catch(_ => './multimedia/imagenes/avatar.jpg')
+                let pp = await conn.profilePictureUrl(sender, 'image').catch(_ => m.multimedia('imagenes/avatar.jpg'))
                 let { coin, exp, nivel, role, registered, name, premium } = m.data('users', sender)
                 let Text = `
 ┌───「 *PERFIL* 」
@@ -1108,7 +1108,7 @@ Enviando archivo${readMore}`.trim();
 • @${sender.replace(/@.+/, '')}
 ▢ *Numero:* ${PhoneNumber('+' + sender.replace('@s.whatsapp.net', '')).getNumber('international')}
 ▢ *Link:* wa.me/${sender.split`@`[0]}
-▢ *m.user()* : ${ premium ? 'Si' : 'No'}
+▢ *m.user()* : ${premium ? 'Si' : 'No'}
 ▢ *coins :* ${coin}
 ▢ *XP :* ${exp}
 ▢ *Nivel :* ${nivel}
@@ -1116,9 +1116,9 @@ Enviando archivo${readMore}`.trim();
 ▢ *Registrado :* ${registered ? 'Si' : 'No'}
 └──────────────`.trim()
 
-                const { path } = await overlayImages([pp, registered ? premium ? './multimedia/iconos/m.user().png' : './multimedia/iconos/registrado.png' : './multimedia/iconos/usuario.png'], { tamano: '%15', localizacion: ['abajoIzquierda', 1] })
+                const { path } = await overlayImages([pp, registered ? premium ? m.multimedia('iconos/usuario.png') : m.multimedia('iconos/registrado.png') : m.multimedia('iconos/usuario.png')], { tamano: '%15', localizacion: ['abajoIzquierda', 1] })
 
-                conn.sendMessage(m.chat, { image: fs.readFileSync(path), caption: Text, contextInfo: { mentionedJid: [...Text.matchAll(/@(\d{0,16})/g)].map(v => v[1] + '@s.whatsapp.net'), externalAdReply: { title: registered ? name : m.name, body: 'Usuario de Zenn Bot MD', thumbnail: fs.readFileSync('./multimedia/imagenes/thumbnail.jpg') } } }, { quoted: m }); m.react(done)
+                conn.sendMessage(m.chat, { image: fs.readFileSync(path), caption: Text, contextInfo: { mentionedJid: [...Text.matchAll(/@(\d{0,16})/g)].map(v => v[1] + '@s.whatsapp.net'), externalAdReply: { title: registered ? name : m.name, body: 'Usuario de Zenn Bot MD', thumbnailUrl: m.multimedia('imagenes/thumbnail.jpg') } } }, { quoted: m }); m.react(done)
             } break
 
             case 'diario': case 'claim': case 'reclamar': {
@@ -1147,7 +1147,7 @@ Enviando archivo${readMore}`.trim();
                 if (rueda1[1] === rueda2[1] && rueda2[1] === rueda3[1]) {
                     texto += "● *¡Felicidades!* Las tres frutas del centro son iguales. *Ganaste 1000 XP*."
                     m.data('users', m.sender).exp += 1000
-                    conn.sendMessage(m.chat, { audio: fs.readFileSync('./multimedia/audios/bara.m4a'), contextInfo: { externalAdReply: { title: `¡Felicidades! +1000 XP`, body: `Usuario de Zenn Bot MD`, thumbnailUrl: await conn.profilePictureUrl(m.sender, 'image') } }, fileName: `Bot.mp3`, mimetype: 'audio/mpeg', ptt: true }, { quoted: m })
+                    conn.sendMessage(m.chat, { audio: { url: m.multimedia('audios/bara.m4a') }, contextInfo: { externalAdReply: { title: `¡Felicidades! +1000 XP`, body: `Usuario de Zenn Bot MD`, thumbnailUrl: await conn.profilePictureUrl(m.sender, 'image') } }, fileName: `Bot.mp3`, mimetype: 'audio/mpeg', ptt: true }, { quoted: m })
 
                 } else if (rueda1[1] === rueda2[1] || rueda2[1] === rueda3[1] || rueda1[1] === rueda3[1]) {
                     texto += "● Dos frutas del centro son iguales. *Ganaste 500 XP*."
@@ -1342,7 +1342,13 @@ ${cpus[0].model.trim()} (${cpu.speed} MHZ)\n${Object.keys(cpu.times).map(type =>
 *CPU Core(s) Usado (${cpus.length} Core CPU)*
 ${cpus.map((cpu, i) => `${i + 1}. ${cpu.model.trim()} (${cpu.speed} MHZ)\n${Object.keys(cpu.times).map(type => `- *${(type + '*').padEnd(6)}: ${(100 * cpu.times[type] / cpu.total).toFixed(2)}%`).join('\n')}`).join('\n\n')}` : ''}`)
 
-            await conn.sendMessage(m.chat, { text: texto, contextInfo: { externalAdReply: { title: 'Zenn Bot MD (en proceso)', body: `Activo: ${global.uptime} / procesamiento : ${speed} milisegundos`, thumbnail: fs.readFileSync('./multimedia/imagenes/thumbnail.jpg'), mediaType: 1, renderLargerThumbnail: true } } }, { quoted: m })
+            await conn.sendMessage(m.chat, {
+                text: texto, contextInfo: {
+                    externalAdReply: {
+                        title: 'Zenn Bot MD (en proceso)', body: `Activo: ${global.uptime} / procesamiento : ${speed} milisegundos`, thumbnailUrl: m.multimedia('imagenes/thumbnail.jpg'), mediaType: 1, renderLargerThumbnail: true
+                    }
+                }
+            }, { quoted: m })
         } break
 
         case 'menu': case 'help': case 'comandos': {
@@ -1355,7 +1361,7 @@ ${cpus.map((cpu, i) => `${i + 1}. ${cpu.model.trim()} (${cpu.speed} MHZ)\n${Obje
                 return text
             }
 
-            const { path } = await overlayImages(['./multimedia/imagenes/logo.png', './multimedia/iconos/nodejs.png'], { tamano: [100, 100], localizacion: ['abajoIzquierda', 50] })
+            const { path } = await overlayImages([m.multimedia('imagenes/logo.png'), m.multimedia('iconos/nodejs.png')], { tamano: [100, 100], localizacion: ['abajoIzquierda', 50] })
 
             conn.sendMessage(m.chat, {
                 image: fs.readFileSync(path),
@@ -1364,7 +1370,7 @@ ${cpus.map((cpu, i) => `${i + 1}. ${cpu.model.trim()} (${cpu.speed} MHZ)\n${Obje
                     mentionedJid: [...defaultMenu().matchAll(/@(\d{0,16})/g)].map(v => v[1] + '@s.whatsapp.net'), externalAdReply: {
                         title: 'Zenn Bot MD (en desarrollo)',
                         body: 'Simple Bot de WhatsApp',
-                        thumbnail: fs.readFileSync('./multimedia/imagenes/thumbnail.jpg'),
+                        thumbnailUrl: m.multimedia('imagenes/thumbnail.jpg'),
                         sourceUrl: 'https://github.com/Zeppth/Zenn-Bot-MD?rgh-fork=true',
                         showAdAttribution: true
                     }

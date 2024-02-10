@@ -91,7 +91,7 @@ async function StartBot() {
   const conn = await makeWAconnet(connection)
   store?.bind(conn.ev)
 
-  if (zenn.conexion == '2' && zenn.numero) {
+  if (zenn.conexion == '2') {
     if (conn.authState.creds.registered) return
     console.log(`${chalk.white('╰') + chalk.red('┅') + chalk.white('[ ') + chalk.greenBright('CODIGO : ' + (await conn.requestPairingCode(zenn.numero))?.match(/.{1,4}/g)?.join("-") || phoneVinculo) + chalk.white(' ]')}\n`)
   }

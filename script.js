@@ -11,6 +11,7 @@ const Prefix = ".¿?¡!#%&/;:,~-+="
 global.prefix = Prefix[0]
 const isNumber = x => typeof x === 'number' && !isNaN(x)
 const { DisconnectReason } = (await import('@whiskeysockets/baileys')).default
+const multimedia = (object) => `https://raw.githubusercontent.com/Zeppth/MyArchive/main/${object}`
 
 export async function connection_update(update, StartBot) {
     console.log(update); const { connection, lastDisconnect, qr } = update
@@ -45,6 +46,7 @@ export async function messages_upsert(conn, m, store, subBot = false) {
     const data = global.db.data
     m.data = (object, m) => global.db.data[object][m]
     m.user = (sender = m.sender) => { const user = data.users[sender]; return user.rowner ? 'rowner' : user.owner ? 'owner' : user.modr ? 'modr' : user.premium ? 'premium' : false }
+    m.multimedia = (object) => multimedia(object)
 
     m.isROwner = m.user() == 'rowner'
     m.isOwner = m.user() == 'owner'
@@ -125,7 +127,7 @@ export async function group_participants_update(conn, anu) {
             if (!chat.welcome) return;
             const groupMetadata = conn.groupMetadata(id)
             for (let user of participants) {
-                let data = await conn.profilePictureUrl(user, 'image').catch(_ => './multimedia/imagenes/avatar.jpg')
+                let data = await conn.profilePictureUrl(user, 'image').catch(_ => multimedia('imagenes/avatar.jpg'))
                 let fesha = moment().tz(Intl.DateTimeFormat().resolvedOptions().timeZone).format('DD/MM/YY HH:mm:ss')
                 const welcome = '● *Bienvenid@ :* @user\n● *Normas del grupo*\n' + String.fromCharCode(8206).repeat(850) + '\n@desc'
                 const bye = '[ ! ] C fue alv : @user'
