@@ -12,6 +12,17 @@ global.prefix = Prefix[0]
 const isNumber = x => typeof x === 'number' && !isNaN(x)
 const { DisconnectReason } = (await import('@whiskeysockets/baileys')).default
 const multimedia = (object) => `https://raw.githubusercontent.com/Zeppth/MyArchive/main/${object}`
+const Global = (sender) => {
+    const creador = (global.owner.find(o => o[2])?.[0] + '@s.whatsapp.net').includes(sender)
+    const propietario = global.owner.map(owner => owner[0].replace(/[^0-9]/g, '') + '@s.whatsapp.net').includes(sender)
+    const moderador = global.mods.map(v => v.replace(/[^0-9]/g, '') + '@s.whatsapp.net').includes(sender)
+    const premium = moderador || global.prems.map(v => v.replace(/[^0-9]/g, '') + '@s.whatsapp.net').includes(sender)
+    if (creador) return 'rowner'
+    else if (creador || propietario) return 'owner'
+    else if (propietario || moderador) return 'modr'
+    else if (moderador || premium) return 'premium'
+    else return false
+}
 
 export async function connection_update(update, StartBot) {
     console.log(update); const { connection, lastDisconnect, qr } = update
@@ -36,7 +47,6 @@ export async function messages_upsert(conn, m, store, subBot = false) {
         m.groupName = m.isGroup ? m.groupMetadata.subject : ''
         m.participants = m.isGroup ? await m.groupMetadata.participants : ''
         m.groupAdmins = m.isGroup ? await m.participants.filter(v => v.admin !== null).map(v => v.id) : ''
-
         m.groupOwner = m.isGroup ? m.groupMetadata.owner : ''
         m.groupMembers = m.isGroup ? m.groupMetadata.participants : ''
         m.isBotAdmin = m.isGroup ? m.groupAdmins.includes(m.Bot) : false
@@ -64,6 +74,11 @@ export async function messages_upsert(conn, m, store, subBot = false) {
     console.log('\x1b[1;31m~\x1b[1;37m>', chalk.white('['), chalk.blue(m.isCmd ? `EJECUTANDO` : `MENSAJE`), chalk.white(']'), chalk.green('{'), chalk.rgb(255, 131, 0).underline(m.budy), chalk.green('}'), chalk.blue(m.isCmd ? 'Por' : 'De'), chalk.cyan(m.name), 'Chat', m.isGroup ? chalk.bgGreen('grupo:' + m.groupName || m.chat) : chalk.bgRed('Privado:' + m.name || m.sender), 'Fecha', chalk.magenta(moment().tz(Intl.DateTimeFormat().resolvedOptions().timeZone).format('DD/MM/YY HH:mm:ss')).trim())
 
     m.reply = async (text) => { await conn.sendMessage(m.chat, { text: text, contextInfo: { mentionedJid: [...text.matchAll(/@(\d{0,16})/g)].map(v => v[1] + '@s.whatsapp.net') } }, { quoted: m }) }
+
+    if (Global(m.sender) == 'premium' && !m.data('users', m.sender).premium) m.data('users', m.sender).premium = true
+    if (Global(m.sender) == 'rowner' && !m.data('users', m.sender).rowner) m.data('users', m.sender).rowner = true
+    if (Global(m.sender) == 'owner' && !m.data('users', m.sender).owner) m.data('users', m.sender).owner = true
+    if (Global(m.sender) == 'modr' && !m.data('users', m.sender).modr) m.data('users', m.sender).modr = true
 
     if (global.db.data.chats[m.chat].antiPrivado) { if (!m.isGroup) { if (!(m.isPrems ?? m.isModr ?? m.isOwner ?? m.isROwner)) { m.reply('El chat privado esta prohibido'); return } } }
 
@@ -152,22 +167,10 @@ export async function database(conn, m) {
     m.sender = m.key.participant || m.participant || m.chat || ''
     m.Bot = conn.user.id.split(":")[0] + "@s.whatsapp.net"
 
-    const globalOwner = (sender) => {
-        const creador = (global.owner.find(o => o[2])?.[0] + '@s.whatsapp.net').includes(sender)
-        const propietario = global.owner.map(owner => owner[0].replace(/[^0-9]/g, '') + '@s.whatsapp.net').includes(sender)
-        const moderador = global.mods.map(v => v.replace(/[^0-9]/g, '') + '@s.whatsapp.net').includes(sender)
-        const premium = moderador || global.prems.map(v => v.replace(/[^0-9]/g, '') + '@s.whatsapp.net').includes(sender)
-        if (creador) return 'rowner'
-        else if (creador || propietario) return 'owner'
-        else if (propietario || moderador) return 'modr'
-        else if (moderador || premium) return 'premium'
-        else return false
-    }
-
-    const creador = globalOwner(m.sender) == 'rowner'
-    const propietario = globalOwner(m.sender) == 'owner'
-    const moderador = globalOwner(m.sender) == 'modr'
-    const premium = globalOwner(m.sender) == 'premium'
+    const creador = Global(m.sender) == 'rowner'
+    const propietario = Global(m.sender) == 'owner'
+    const moderador = Global(m.sender) == 'modr'
+    const premium = Global(m.sender) == 'premium'
 
     let user = global.db.data.users[m.sender]
     if (typeof user !== 'object') global.db.data.users[m.sender] = {}
