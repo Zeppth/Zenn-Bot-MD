@@ -46,7 +46,7 @@ export async function messages_upsert(conn, m, store, subBot = false) {
     const data = global.db.data
     m.data = (object, m) => global.db.data[object][m]
     m.user = (sender = m.sender) => { const user = data.users[sender]; return user.rowner ? 'rowner' : user.owner ? 'owner' : user.modr ? 'modr' : user.premium ? 'premium' : false }
-    m.multimedia = (object) => multimedia(object)
+    m.multimedia = (object) => `https://raw.githubusercontent.com/Zeppth/MyArchive/main/${object}`
 
     m.isROwner = m.user() == 'rowner'
     m.isOwner = m.user() == 'owner'
