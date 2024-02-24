@@ -3,13 +3,17 @@ import { platform } from 'process'
 import path from 'path'
 
 global.owner = [
-    ['5216673877887', 'Zeppth', true],
+    ['573206548526', 'Zeppth', true],
     ['5216671993513'],
     ['51907182818']
 ]
 
-global.mods = ['5216673877887', '5216671993513', '51907182818']
-global.prems = ['5216673877887', '5216671993513', '51907182818']
+global.mods = ['573206548526', '5216671993513', '51907182818']
+global.prems = ['573206548526', '5216671993513', '51907182818']
+
+global.rwait = '⌛'
+global.done = '✔️'
+global.error = '✖️'
 
 global.rpg = {
     data: {

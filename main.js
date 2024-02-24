@@ -1,12 +1,10 @@
-//by Zeppt 5216673877887
-
 import yargs from 'yargs'
 import lodash from 'lodash'
 import { Low, JSONFile } from 'lowdb'
 import pino from 'pino'
 import NodeCache from 'node-cache'
 import chalk from 'chalk'
-import { join } from 'path'
+import path, { join } from 'path'
 import { format } from 'util'
 import { readdirSync, unlinkSync } from 'fs'
 import readline from 'readline'
@@ -27,7 +25,7 @@ const menu = (`╭┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅
 let connect = {}
 
 const { chain } = lodash
-const { default: makeWAconnet, useMultiFileAuthState, PHONENUMBER_MCC, makeInMemoryStore, fetchLatestBaileysVersion, proto } = (await import('@whiskeysockets/baileys')).default
+const { default: makeWAconnet, useMultiFileAuthState, makeInMemoryStore, fetchLatestBaileysVersion, proto } = (await import('@whiskeysockets/baileys')).default
 const __dirname = global.__dirname(import.meta.url);
 const store = makeInMemoryStore({ logger: pino().child({ level: 'silent', stream: 'store' }) })
 const readLine = readline.createInterface({ input: process.stdin, output: process.stdout, prompt: '' })
@@ -100,7 +98,7 @@ async function StartBot() {
   conn.ev.on('connection.update', async (update) => { await connection_update(update, StartBot).catch(e => { connect.error = format(e), console.log(format(e)) }) });
   conn.ev.on('messages.upsert', async (m) => {
     await database(conn, m).catch(e => { connect.error = format(e), console.log(format(e)) })
-    await messages_upsert(conn, m, store, proto, false).catch(e => { connect.error = format(e), console.log(format(e)) })
+    await messages_upsert(conn, m, store, proto).catch(e => { connect.error = format(e), console.log(format(e)) })
   })
   conn.ev.on("groups.update", async (json) => { await groups_update(conn, json).catch(e => { connect.error = format(e), console.log(format(e)) }) })
   conn.ev.on('group-participants.update', async (anu) => { await group_participants_update(conn, anu).catch(e => { connect.error = format(e), console.log(format(e)) }) })

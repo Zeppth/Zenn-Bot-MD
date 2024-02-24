@@ -1,28 +1,24 @@
 import chalk from 'chalk'
 import { smsg } from './lib/simple.js'
-import { sendCase } from './case.js'
+import { exec } from 'child_process'
 import moment from 'moment-timezone'
 import QRCode from 'qrcode-terminal'
 import { Boom } from '@hapi/boom'
-import { format } from 'util'
+import util, { format } from 'util'
 import './config.js'
+import fs from 'fs';
+import path from 'path';
+import url from 'url';
 
 const Prefix = ".¿?¡!#%&/;:,~-+="
 global.prefix = Prefix[0]
+global.readMore = String.fromCharCode(8206).repeat(850)
+
 const isNumber = x => typeof x === 'number' && !isNaN(x)
 const { DisconnectReason } = (await import('@whiskeysockets/baileys')).default
 const multimedia = (object) => `https://raw.githubusercontent.com/Zeppth/MyArchive/main/${object}`
-const Global = (sender) => {
-    const creador = (global.owner.find(o => o[2])?.[0] + '@s.whatsapp.net').includes(sender)
-    const propietario = global.owner.map(owner => owner[0].replace(/[^0-9]/g, '') + '@s.whatsapp.net').includes(sender)
-    const moderador = global.mods.map(v => v.replace(/[^0-9]/g, '') + '@s.whatsapp.net').includes(sender)
-    const premium = moderador || global.prems.map(v => v.replace(/[^0-9]/g, '') + '@s.whatsapp.net').includes(sender)
-    if (creador) return 'rowner'
-    else if (creador || propietario) return 'owner'
-    else if (propietario || moderador) return 'modr'
-    else if (moderador || premium) return 'premium'
-    else return false
-}
+
+const Global = sender => ['rowner', 'owner', 'modr', 'premium'].find((role, i) => [global.owner.find(o => o[2])?.[0] + '@s.whatsapp.net', global.owner.map(owner => owner[0].replace(/[^0-9]/g, '') + '@s.whatsapp.net'), global.mods.map(v => v.replace(/[^0-9]/g, '') + '@s.whatsapp.net'), global.mods.map(v => v.replace(/[^0-9]/g, '') + '@s.whatsapp.net') || global.prems.map(v => v.replace(/[^0-9]/g, '') + '@s.whatsapp.net')][i].includes(sender)) || false;
 
 export async function connection_update(update, StartBot) {
     console.log(update); const { connection, lastDisconnect, qr } = update
@@ -53,10 +49,26 @@ export async function messages_upsert(conn, m, store, subBot = false) {
         m.isAdmin = m.isGroup ? m.groupAdmins.includes(m.sender) : false
     }
 
-    const data = global.db.data
-    m.data = (object, m) => global.db.data[object][m]
-    m.user = (sender = m.sender) => { const user = data.users[sender]; return user.rowner ? 'rowner' : user.owner ? 'owner' : user.modr ? 'modr' : user.premium ? 'premium' : false }
-    m.multimedia = (object) => `https://raw.githubusercontent.com/Zeppth/MyArchive/main/${object}`
+    const data = global.db.data;
+    m.data = (object, m) => data[object][m];
+    m.multimedia = object => `https://raw.githubusercontent.com/Zeppth/MyArchive/main/${object}`;
+    m.user = (sender = m.sender) => { return ['rowner', 'owner', 'modr', 'premium'].find(role => data.users[sender][role]) || false }
+    m.quesCoin = () => {
+        let objeto = false
+        if (!m.data('chats', m.chat).commands.rpg) return false;
+        const usuario = m.data('users', m.sender);
+        if (usuario.coin < 1) { m.reply(`*¡Ups!* Parece que te has quedado sin coins para utilizar algunas funciones T_T. Puedes comprar más coins usando este comando:\n\n${prefix}comprar <cantidad>`), objeto = true } else if (usuario.coin == 4) { m.reply(`*¡Atención!* Solo te quedan 3 coins. No olvides que puedes adquirir más coins utilizando el comando *${prefix}comprar <cantidad>* ¡Asegúrate de tener suficientes coins para seguir usando este Bot!`) }
+        return objeto
+    }
+
+    m.remCoin = (coin = 1) => {
+        if (!m.data('chats', m.chat).commands.rpg) return;
+        const usuario = m.data('users', m.sender);
+        usuario.coin -= m.user() ? 0 : (coin === true ? 1 : coin);
+        return usuario.coin;
+    };
+
+    ['premium', 'rowner', 'owner', 'modr'].forEach(role => { if (Global(m.sender) == role && !m.data('users', m.sender)[role]) m.data('users', m.sender)[role] = true });
 
     m.isROwner = m.user() == 'rowner'
     m.isOwner = m.user() == 'owner'
@@ -75,62 +87,90 @@ export async function messages_upsert(conn, m, store, subBot = false) {
 
     m.reply = async (text) => { await conn.sendMessage(m.chat, { text: text, contextInfo: { mentionedJid: [...text.matchAll(/@(\d{0,16})/g)].map(v => v[1] + '@s.whatsapp.net') } }, { quoted: m }) }
 
-    if (Global(m.sender) == 'premium' && !m.data('users', m.sender).premium) m.data('users', m.sender).premium = true
-    if (Global(m.sender) == 'rowner' && !m.data('users', m.sender).rowner) m.data('users', m.sender).rowner = true
-    if (Global(m.sender) == 'owner' && !m.data('users', m.sender).owner) m.data('users', m.sender).owner = true
-    if (Global(m.sender) == 'modr' && !m.data('users', m.sender).modr) m.data('users', m.sender).modr = true
-
-    if (global.db.data.chats[m.chat].antiPrivado) { if (!m.isGroup) { if (!(m.isPrems ?? m.isModr ?? m.isOwner ?? m.isROwner)) { m.reply('El chat privado esta prohibido'); return } } }
-
-    if (global.db.data.chats[m.chat].antiTraba) {
-        if (m.isAdmin) return;
-        if (m.isOwner) return;
-        if (m.isROwner) return;
-        if (m.Bot == m.sender) return;
-        if (m.budy.length > 4000) {
-            await conn.sendMessage(m.chat, { text: `*Se ha detectado un mensaje que contiene muchos caracteres*\n@${m.sender.split("@")[0]} Adios...\n`, mentions: [m.sender] })
-            conn.sendMessage(m.chat, { delete: { remoteJid: m.chat, fromMe: false, id: m.key.id, participant: m.key.participant } })
-            setTimeout(() => { conn.groupParticipantsUpdate(m.chat, [m.sender], 'remove') }, 1000)
-            conn.sendMessage(m.chat, { text: `Marque el chat como leido.${('\n').repeat(200)}` })
-        }
+    if (global.db.data.chats[m.chat].antiTraba && !['isAdmin', 'isOwner', 'isROwner'].some(role => m[role]) && m.Bot != m.sender && m.budy.length > 4000) {
+        await conn.sendMessage(m.chat, { text: `*Se ha detectado un mensaje que contiene muchos caracteres*\n@${m.sender.split("@")[0]} Adios...\n`, mentions: [m.sender] });
+        conn.sendMessage(m.chat, { delete: { remoteJid: m.chat, fromMe: false, id: m.key.id, participant: m.key.participant } });
+        setTimeout(() => { conn.groupParticipantsUpdate(m.chat, [m.sender], 'remove') }, 1000);
+        conn.sendMessage(m.chat, { text: `Marque el chat como leido.${('\n').repeat(200)}` });
     }
 
     if (global.db.data.chats[m.chat].antiLink) {
-        const Regex = /chat.whatsapp.com\/(?:invite\/)?([0-9A-Za-z]{20,24})/i
-        const isGroupLink = Regex.exec(m.budy)
-        const linkisGroup = `https://chat.whatsapp.com/${await conn.groupInviteCode(m.chat)}`
-        if (isGroupLink) {
-            if (m.isAdmin) return;
-            if (m.isOwner) return;
-            if (m.isROwner) return;
-            if (m.Bot == m.sender) return;
-            if (m.budy.includes(linkisGroup)) return;
-            await conn.sendMessage(m.chat, { text: `*Enlace detectado*\n@${m.sender.split("@")[0]} Adios...\n`, mentions: [m.sender] })
-            conn.sendMessage(m.chat, { delete: { remoteJid: m.chat, fromMe: false, id: m.key.id, participant: m.key.participant } })
-            setTimeout(() => { conn.groupParticipantsUpdate(m.chat, [m.sender], 'remove') }, 1000)
+        const Regex = /chat.whatsapp.com\/(?:invite\/)?([0-9A-Za-z]{20,24})/i;
+        const isGroupLink = Regex.exec(m.budy);
+        const linkisGroup = `https://chat.whatsapp.com/${await conn.groupInviteCode(m.chat)}`;
+        if (isGroupLink && !['isAdmin', 'isOwner', 'isROwner'].some(role => m[role]) && m.Bot != m.sender && !m.budy.includes(linkisGroup)) {
+            await conn.sendMessage(m.chat, { text: `*Enlace detectado*\n@${m.sender.split("@")[0]} Adios...\n`, mentions: [m.sender] });
+            conn.sendMessage(m.chat, { delete: { remoteJid: m.chat, fromMe: false, id: m.key.id, participant: m.key.participant } });
+            setTimeout(() => { conn.groupParticipantsUpdate(m.chat, [m.sender], 'remove') }, 1000);
         }
     }
 
-    if (global.db.data.settings[m.Bot].autoread) conn.readMessages([m.key])
+    if (global.db.data.settings[m.Bot].autoread) conn.readMessages([m.key]);
+    if (global.db.data.settings[m.Bot].antiPrivado && !m.isGroup && !(m.isPrems ?? m.isModr ?? m.isOwner ?? m.isROwner)) return m.reply('El chat privado esta prohibido')
+    if (!conn.before) conn.before = {}
+    if (conn.before[m.sender]) await conn.before[m.sender].script(m, conn)
 
-    try { await sendCase(conn, m, store) } catch (e) { conn.sendMessage(global.owner.find(o => o[2])?.[0] + '@s.whatsapp.net', { text: `*¡Se detecto ${subBot ? 'en un subBot' : 'en el Bot'}¡:*\n\n*▢ Comando :* ${prefix + m.command}\n*▢ Usuario:* wa.me/${m.sender.split("@")[0]}\n*▢ Chat:* ${m.chat}\n\n\`\`\`${format(e)}\`\`\` \n`.trim() }, { quoted: m }); console.log(format(e)) }
+    conn.commands = new Map();
+    conn.promises = fs.readdirSync('./cmds').filter(file => file.endsWith('.js')).map(file => import(url.pathToFileURL(path.resolve('./cmds', file))).then(command => command.default?.command?.forEach(cmd => conn.commands.set(cmd, command.default))));
+
+    Promise.all(conn.promises).then(async () => {
+        if (!m.isOwner && data.chats[m.chat].isBanned) return;
+        if (!m.isROwner && data.users[m.sender].banned) return;
+        if (!(m.isROwner ?? m.isOwner ?? m.isModr ?? m.isAdmin) && data.chats[m.chat].commands.adminUse) return;
+        if (!(m.isROwner ?? m.isOwner ?? m.isModr) && data.settings[m.Bot].OwnerUse) return;
+
+        const command = conn.commands.get(m.command);
+
+        if (command) {
+            if (command.categoria == 'servicio' && !m.data('chats', m.chat).commands.servicio) return;
+            if (command.categoria == 'rpg' && !m.data('chats', m.chat).commands.rpg) return;
+            return await command.script(m, { conn, store });
+        }
+
+        if (m.budy.startsWith('=>')) {
+            if (!m.isROwner) return m.sms('owner')
+            try { m.reply(util.format(eval(`(async () => { return ${m.budy.slice(3)} })()`))) } catch (e) { m.reply(String(e)) }
+        }
+        if (m.budy.startsWith('>')) {
+            if (!m.isROwner) return m.sms('owner')
+            try {
+                let evaled = await eval(m.budy.slice(2))
+                if (typeof evaled !== 'string') evaled = util.inspect(evaled)
+                if (evaled == 'undefined') { } else await m.reply(evaled)
+            } catch (err) { if (err == 'undefined') { } else await m.reply(String(err)) }
+        }
+        if (m.budy.startsWith('$')) {
+            if (!m.isROwner) return m.sms('owner')
+            exec(m.budy.slice(2), (err, stdout) => {
+                if (err) return m.reply(err)
+                if (stdout) return m.reply(stdout)
+            })
+        }
+    }).catch(e => {
+        const message = `*¡Se detecto ${subBot ? 'en un subBot' : 'en el Bot'}¡:*\n\n*▢ Comando :* ${prefix + m.command}\n*▢ Usuario:* wa.me/${m.sender.split("@")[0]}\n*▢ Chat:* ${m.chat}\n\n\`\`\`${format(e)}\`\`\` \n`.trim();
+        conn.sendMessage(global.owner.find(o => o[2])?.[0] + '@s.whatsapp.net', { text: message }, { quoted: m });
+        console.log(format(e));
+    })
+
 }
 
 export async function groups_update(conn, json) {
-    const grupo = json[0]
-    const id = grupo.id
-    let detect = global.db.data.chats[grupo.id].detect
-    if (!detect) return
-    let text = ''
-    if (!grupo.desc == '') text = ('*「 La descripción fue actualizada 」*\n@desc').replace('@desc', grupo.desc)
-    else if (grupo.subject) text = ('*「 El nombre del grupo fue actualizado 」*\n@subject').replace('@subject', grupo.subject)
-    else if (grupo.icon) text = ('*「 Imagen del grupo actualizada 」*').replace('@icon', grupo.icon)
-    else if (grupo.revoke) text = ('*「 El link del grupo fue actualizado 」*\n@revoke').replace('@revoke', grupo.revoke)
-    else if (grupo.announce == true) text = ('*「 Configuración del grupo cambiada 」*\n¡Ahora solo los administradores pueden enviar mensajes!')
-    else if (grupo.announce == false) text = ('*「 Configuración del grupo cambiada 」*\n¡Ahora todos los participantes pueden enviar mensajes!')
-    else if (grupo.restrict == true) text = ('*「 La configuración del grupo ha cambiado 」*\nLa información del grupo se ha restringido, ¡ahora solo los administradores pueden editar la información del grupo!')
-    else if (grupo.restrict == false) text = ('*「 La configuración del grupo ha cambiado 」*\nSe ha abierto la información del grupo, ¡ahora todos los participantes pueden editar la información del grupo!')
-    await conn.sendMessage(id, { text: text })
+    const grupo = json[0];
+    const id = grupo.id;
+    let detect = global.db.data.chats[grupo.id].detect;
+    if (!detect) return;
+    let text = '';
+    const messages = {
+        desc: '*「 La descripción fue actualizada 」*\n@desc',
+        subject: '*「 El nombre del grupo fue actualizado 」*\n@subject',
+        icon: '*「 Imagen del grupo actualizada 」*',
+        revoke: '*「 El link del grupo fue actualizado 」*\n@revoke',
+        announce: grupo.announce ? '*「 Configuración del grupo cambiada 」*\n¡Ahora solo los administradores pueden enviar mensajes!' : '*「 Configuración del grupo cambiada 」*\n¡Ahora todos los participantes pueden enviar mensajes!',
+        restrict: grupo.restrict ? '*「 La configuración del grupo ha cambiado 」*\nLa información del grupo se ha restringido, ¡ahora solo los administradores pueden editar la información del grupo!' : '*「 La configuración del grupo ha cambiado 」*\nSe ha abierto la información del grupo, ¡ahora todos los participantes pueden editar la información del grupo!'
+    };
+    for (let prop in messages) { if (grupo[prop]) { text = messages[prop].replace('@' + prop, grupo[prop]); break } }
+    await conn.sendMessage(id, { text: text });
+
 }
 
 export async function group_participants_update(conn, anu) {
@@ -167,10 +207,10 @@ export async function database(conn, m) {
     m.sender = m.key.participant || m.participant || m.chat || ''
     m.Bot = conn.user.id.split(":")[0] + "@s.whatsapp.net"
 
-    const creador = Global(m.sender) == 'rowner'
-    const propietario = Global(m.sender) == 'owner'
-    const moderador = Global(m.sender) == 'modr'
-    const premium = Global(m.sender) == 'premium'
+    const creador = Global(m.sender) == 'rowner';
+    const propietario = Global(m.sender) == 'owner';
+    const moderador = Global(m.sender) == 'modr';
+    const premium = Global(m.sender) == 'premium';
 
     let user = global.db.data.users[m.sender]
     if (typeof user !== 'object') global.db.data.users[m.sender] = {}
