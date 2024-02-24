@@ -155,22 +155,20 @@ export async function messages_upsert(conn, m, store, subBot = false) {
 }
 
 export async function groups_update(conn, json) {
-    const grupo = json[0];
-    const id = grupo.id;
-    let detect = global.db.data.chats[grupo.id].detect;
-    if (!detect) return;
-    let text = '';
-    const messages = {
-        desc: '*「 La descripción fue actualizada 」*\n@desc',
-        subject: '*「 El nombre del grupo fue actualizado 」*\n@subject',
-        icon: '*「 Imagen del grupo actualizada 」*',
-        revoke: '*「 El link del grupo fue actualizado 」*\n@revoke',
-        announce: grupo.announce ? '*「 Configuración del grupo cambiada 」*\n¡Ahora solo los administradores pueden enviar mensajes!' : '*「 Configuración del grupo cambiada 」*\n¡Ahora todos los participantes pueden enviar mensajes!',
-        restrict: grupo.restrict ? '*「 La configuración del grupo ha cambiado 」*\nLa información del grupo se ha restringido, ¡ahora solo los administradores pueden editar la información del grupo!' : '*「 La configuración del grupo ha cambiado 」*\nSe ha abierto la información del grupo, ¡ahora todos los participantes pueden editar la información del grupo!'
-    };
-    for (let prop in messages) { if (grupo[prop]) { text = messages[prop].replace('@' + prop, grupo[prop]); break } }
-    await conn.sendMessage(id, { text: text });
-
+    const grupo = json[0]
+    const id = grupo.id
+    let detect = global.db.data.chats[grupo.id].detect
+    if (!detect) return
+    let text = ''
+    if (!grupo.desc == '') text = ('*「 La descripción fue actualizada 」*\n@desc').replace('@desc', grupo.desc)
+    else if (grupo.subject) text = ('*「 El nombre del grupo fue actualizado 」*\n@subject').replace('@subject', grupo.subject)
+    else if (grupo.icon) text = ('*「 Imagen del grupo actualizada 」*').replace('@icon', grupo.icon)
+    else if (grupo.revoke) text = ('*「 El link del grupo fue actualizado 」*\n@revoke').replace('@revoke', grupo.revoke)
+    else if (grupo.announce == true) text = ('*「 Configuración del grupo cambiada 」*\n¡Ahora solo los administradores pueden enviar mensajes!')
+    else if (grupo.announce == false) text = ('*「 Configuración del grupo cambiada 」*\n¡Ahora todos los participantes pueden enviar mensajes!')
+    else if (grupo.restrict == true) text = ('*「 La configuración del grupo ha cambiado 」*\nLa información del grupo se ha restringido, ¡ahora solo los administradores pueden editar la información del grupo!')
+    else if (grupo.restrict == false) text = ('*「 La configuración del grupo ha cambiado 」*\nSe ha abierto la información del grupo, ¡ahora todos los participantes pueden editar la información del grupo!')
+    await conn.sendMessage(id, { text: text })
 }
 
 export async function group_participants_update(conn, anu) {
