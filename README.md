@@ -2,11 +2,6 @@
 
 Un bot de WhatsApp simple
 
-
-## Configura el bot
-
-Antes de iniciar el bot, es importante que configures el número del propietario (owner). Para hacerlo, abre el archivo [config.js](configuracion.md) y ajusta las configuraciones según tus necesidades, incluyendo el número del propietario. Asegúrate de guardar los cambios antes de continuar.
-
 ## Instalación en Termux
 
 Sigue estos pasos para instalar Zenn-Bot-MD en Termux:
