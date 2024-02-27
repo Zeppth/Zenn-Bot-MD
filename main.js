@@ -25,7 +25,7 @@ const menu = (`╭┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅
 let connect = {}
 
 const { chain } = lodash
-const { default: makeWAconnet, useMultiFileAuthState, makeInMemoryStore, fetchLatestBaileysVersion, proto } = (await import('@whiskeysockets/baileys')).default
+const { default: makeWAconnet, useMultiFileAuthState, makeInMemoryStore, fetchLatestBaileysVersion, proto, Browsers } = (await import('@whiskeysockets/baileys')).default
 const __dirname = global.__dirname(import.meta.url);
 const store = makeInMemoryStore({ logger: pino().child({ level: 'silent', stream: 'store' }) })
 const readLine = readline.createInterface({ input: process.stdin, output: process.stdout, prompt: '' })
@@ -79,7 +79,7 @@ async function StartBot() {
     logger: pino({ level: 'silent' }),
     printQRInTerminal: false,
     mobile: false,
-    browser: zenn.conexion == '1' ? ['ZennBot-MD', 'Edge', '2.0.0'] : ['Chrome (Linux)', '', ''],
+    browser: zenn.conexion == '1' ? ['ZennBot-MD', 'Edge', '2.0.0'] : Browsers.ubuntu('Chrome'),
     auth: state,
     msgNodeCache,
     generateHighQualityLinkPreview: true,
