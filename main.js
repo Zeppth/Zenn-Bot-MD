@@ -34,7 +34,6 @@ const msgNodeCache = new NodeCache()
 const Sesion = 'Sesion'
 
 let zenn = {
-  creds: fs.existsSync(`./${Sesion}/creds.json`) ? true : false,
   conexion: false,
   numero: false,
   stop: false,
@@ -52,7 +51,7 @@ async function StartBot() {
   const { state, saveCreds } = await useMultiFileAuthState(Sesion)
   const { version } = await fetchLatestBaileysVersion()
 
-  if (!zenn.creds) {
+  if (!fs.existsSync(`./${Sesion}/creds.json`)) {
     console.log(chalk.greenBright(menu))
 
     while (!zenn.stop) {
@@ -67,9 +66,11 @@ async function StartBot() {
       } else {
         const m = await question(chalk.white('┠') + chalk.red('┅') + chalk.white('> '))
         const text = m.trim().split(/ +/).shift().toLowerCase()
-        if (text == '1') { zenn.conexion = '1'; zenn.stop = true }
-        else if (text == '2') { zenn.conexion = '2' }
-        else if (!(text == '2' || text == '1')) console.log(`${chalk.white('╰') + chalk.red('┅') + chalk.white('[ ') + chalk.greenBright('Por favor, introduce solo el número 1 o 2.') + chalk.white(' ]')}\n`) + console.log(chalk.greenBright(menu))
+        switch (text) {
+          case '1': { zenn.conexion = '1'; zenn.stop = true } break;
+          case '2': { zenn.conexion = '2' } break
+          default: { console.log(`${chalk.white('╰') + chalk.red('┅') + chalk.white('[ ') + chalk.greenBright('Por favor, introduce solo el número 1 o 2.') + chalk.white(' ]')}\n`) + console.log(chalk.greenBright(menu)) }
+        }
       }
     }
   }
@@ -77,9 +78,9 @@ async function StartBot() {
   const connection = {
     version,
     logger: pino({ level: 'silent' }),
-    printQRInTerminal: false,
+    printQRInTerminal: zenn.conexion == '1' ? true : false,
     mobile: false,
-    browser: zenn.conexion == '1' ? ['ZennBot-MD', 'Edge', '2.0.0'] : Browsers.ubuntu('Chrome'),
+    browser: zenn.conexion == '1' ? Browsers.macOS('Desktop') : Browsers.macOS('Chrome'),
     auth: state,
     msgNodeCache,
     generateHighQualityLinkPreview: true,
@@ -90,8 +91,8 @@ async function StartBot() {
   store?.bind(conn.ev)
 
   if (zenn.conexion == '2') {
-    if (conn.authState.creds.registered) return
-    console.log(`${chalk.white('╰') + chalk.red('┅') + chalk.white('[ ') + chalk.greenBright('CODIGO : ' + (await conn.requestPairingCode(zenn.numero))?.match(/.{1,4}/g)?.join("-") || phoneVinculo) + chalk.white(' ]')}\n`)
+    if (conn.authState.creds.registered) return false
+    setTimeout(async () => { console.log(`${chalk.white('╰') + chalk.red('┅') + chalk.white('[ ') + chalk.greenBright('CODIGO : ' + (await conn.requestPairingCode(zenn.numero))?.match(/.{1,4}/g)?.join("-") || phoneVinculo) + chalk.white(' ]')}\n`) }, 2000)
   }
 
   conn.ev.on('creds.update', saveCreds);

@@ -21,39 +21,10 @@ const multimedia = (object) => `https://raw.githubusercontent.com/Zeppth/MyArchi
 const Global = sender => ['rowner', 'owner', 'modr', 'premium'].find((role, i) => [global.owner.find(o => o[2])?.[0] + '@s.whatsapp.net', global.owner.map(owner => owner[0].replace(/[^0-9]/g, '') + '@s.whatsapp.net'), global.mods.map(v => v.replace(/[^0-9]/g, '') + '@s.whatsapp.net'), global.mods.map(v => v.replace(/[^0-9]/g, '') + '@s.whatsapp.net') || global.prems.map(v => v.replace(/[^0-9]/g, '') + '@s.whatsapp.net')][i].includes(sender)) || false;
 
 export async function connection_update(update, StartBot) {
-    //console.log(update);
     const { connection, lastDisconnect, qr } = update
-    if (connection === "close") {
-        let reason = new Boom(lastDisconnect?.error)?.output.statusCode;
-        if (reason === DisconnectReason.badSession) {
-            console.log(chalk.redBright.bold(`[ ERROR ]: Archivo de sesión incorrecto, por favor borra la carpeta "Sesion" y comienza de nuevo`));
-            fs.rmSync(path.resolve('Sesion'), { recursive: true, force: true })
-            await StartBot()
-        } else if (reason === DisconnectReason.connectionClosed) {
-            console.log(chalk.redBright.bold("[ ERROR ]: Conexión cerrada, reconectando...."));
-            await StartBot();
-        } else if (reason === DisconnectReason.connectionLost) {
-            console.log(chalk.redBright.bold("[ ERROR ]: Conexión perdida con el servidor, reconectando..."));
-            await StartBot();
-        } else if (reason === DisconnectReason.connectionReplaced) {
-            console.log(chalk.redBright.bold("[ ERROR ]: Conexión reemplazada, se abrió una nueva sesión, por favor reinicia el bot"));
-            process.exit();
-        } else if (reason === DisconnectReason.loggedOut) {
-            console.log(chalk.redBright.bold(`[ ERROR ]: Dispositivo desconectado, por favor borra la carpeta "Sesion" y conecta de nuevo.`));
-            fs.rmSync(path.resolve('Sesion'), { recursive: true, force: true })
-            await StartBot()
-        } else if (reason === DisconnectReason.restartRequired) {
-            console.log(chalk.redBright.bold("[ ERROR ]: Se requiere reiniciar, reiniciando..."));
-            await StartBot();
-        } else if (reason === DisconnectReason.timedOut) {
-            console.log(chalk.redBright.bold("[ ERROR ]: Tiempo de conexión agotado, reconectando..."));
-            await StartBot();
-        } else {
-            console.log(chalk.redBright.bold(`[ ERROR ]: Razón de desconexión desconocida: ${reason}|${connection}`));
-            await StartBot();
-        };
+    if (connection === 'close') { const shouldReconnect = lastDisconnect.error instanceof Boom && lastDisconnect.error.output?.statusCode !== DisconnectReason.loggedOut; console.log(chalk.redBright.bold('[ ERROR ]: Conexión cerrada debido a :', lastDisconnect.error), chalk.greenBright(', reconectando... ',)); if (shouldReconnect) { await StartBot().catch(console.error) }
     } else if (connection === 'open') console.log(`${chalk.greenBright(`Zenn Bot MD : CONECTADO`)}`)
-    if (qr) QRCode.generate(qr, { small: true })
+    //if (qr) console.log(`${chalk.greenBright(`[ QR ]:\n`)}`) //QRCode.generate(qr, { small: true })
     if (global.db.data == null) loadDatabase()
 }
 
@@ -61,18 +32,18 @@ export async function messages_upsert(conn, m, store, subBot = false) {
     const data = global.db.data;
     if (global.db.data == null) await global.loadDatabase()
     if (!m) return;
-    console.log(JSON.stringify(m, undefined, 2))
+    //console.log(JSON.stringify(m, undefined, 2))
     m.mek = m
     m.prefix = global.prefix
     m = m.messages[0]
     m = await smsg(conn, m, store)
 
-    if (data.chats[m.chat] && m.messageStubType == 30) {
+    if (data.chats[m.chat].detect && m.messageStubType == 30) {
         const text = `@${(m.key.participant || m.participant).replace('@s.whatsapp.net', '')} le quitó admin a @${(m.messageStubParameters[0]).replace('@s.whatsapp.net', '')}`
         conn.sendMessage(m.chat, { text: text, contextInfo: { mentionedJid: [...text.matchAll(/@(\d{0,16})/g)].map(v => v[1] + '@s.whatsapp.net') } })
     }
 
-    if (data.chats[m.chat] && m.messageStubType == 29) {
+    if (data.chats[m.chat].detect && m.messageStubType == 29) {
         const text = `@${(m.key.participant || m.participant).replace('@s.whatsapp.net', '')} le dio admin a @${(m.messageStubParameters[0]).replace('@s.whatsapp.net', '')}`
         conn.sendMessage(m.chat, { text: text, contextInfo: { mentionedJid: [...text.matchAll(/@(\d{0,16})/g)].map(v => v[1] + '@s.whatsapp.net') } })
     }
